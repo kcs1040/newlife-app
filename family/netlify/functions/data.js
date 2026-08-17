@@ -13,6 +13,9 @@ const FILE = process.env.DATA_FILE || 'finance.json';
 const SECRET = process.env.APP_SECRET;
 // CORS는 같은 사이트에서만 부르므로 굳이 열어둘 이유가 없다.
 const ORIGIN = process.env.APP_ORIGIN || '';
+// 화면에 쓰기 UI가 없다. 갱신은 Claude Code 세션에서 저장소에 직접 커밋한다.
+// 그러니 쓰기 경로는 꺼두는 게 맞다 — 실수로든 악의로든 덮어쓸 창구를 없앤다.
+const ALLOW_WRITE = process.env.ALLOW_WRITE === 'true';
 
 function authorized(event) {
   if (!SECRET) return true;
@@ -87,6 +90,9 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
+      if (!ALLOW_WRITE) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: '읽기 전용입니다' }) };
+      }
       const { action, payload } = JSON.parse(event.body || '{}');
       const { data, sha } = await read();
 
