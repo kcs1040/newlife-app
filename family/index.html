@@ -87,6 +87,11 @@
   .ln--tot { background:var(--sunk); } .ln--tot .ln__n, .ln--tot .ln__v { font-weight:700; }
   .warn { color:var(--brass); }
   .empty { padding:20px 16px; text-align:center; font-size:12.5px; color:var(--faint); }
+  .ln--sub { padding-left:30px; }
+  .ln--sub .ln__n { font-size:12.5px; color:var(--dim); }
+  .ln--sub .ln__v { font-size:12.5px; color:var(--dim); }
+  .ln__i { font-size:10.5px; color:var(--faint); flex-shrink:0; }
+  .ret { font-family:var(--mono); font-size:11px; flex-shrink:0; }
 
   /* 시뮬레이터 */
   .sim { padding:16px; }
@@ -185,11 +190,7 @@
     <section class="panel">
       <div class="hd"><span class="hd__t">계좌</span><span class="hd__n">평가액 · 월 적립</span></div>
       <div id="eqLines"></div>
-      <div class="gap">
-        <label for="stockIn">주식 평가액 합계 — <b class="warn">미파악</b></label>
-        <input id="stockIn" type="number" inputmode="numeric" placeholder="만원">
-      </div>
-    </section>
+      </section>
   </div>
 
   <!-- 현금 -->
@@ -227,51 +228,53 @@
     pension:{label:'연금',color:'var(--slate)'}
   };
   var TABS = [
-    {id:'overview',   label:'개요',   color:'var(--ink)'},
-    {id:'realestate', label:'부동산', color:CLS.realestate.color},
-    {id:'equity',     label:'투자',   color:CLS.equity.color},
-    {id:'cash',       label:'현금',   color:CLS.cash.color},
-    {id:'pension',    label:'연금',   color:CLS.pension.color}
+    {id:'overview',label:'개요',color:'var(--ink)'},
+    {id:'realestate',label:'부동산',color:CLS.realestate.color},
+    {id:'equity',label:'투자',color:CLS.equity.color},
+    {id:'cash',label:'현금',color:CLS.cash.color},
+    {id:'pension',label:'연금',color:CLS.pension.color}
   ];
-  var D = null, stockValue = null;
+  var D=null;
 
   function $(id){return document.getElementById(id);}
-  function n(v){return Math.round(v).toLocaleString('ko-KR');}
-  function eok(v){return (v/10000).toFixed(2);}
-  function eok1(v){return (v/10000).toFixed(1);}
+  function man(v){return Math.round(v/1e4).toLocaleString('ko-KR');}   // 원 → 만원
+  function eok(v){return (v/1e8).toFixed(2);}
+  function eok1(v){return (v/1e8).toFixed(1);}
   function el(t,c,x){var e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;}
   function months(a,b){return (+b.slice(0,4)-+a.slice(0,4))*12+(+b.slice(5,7)-+a.slice(5,7));}
+  function acctTotal(a){
+    return (a.value||0)+(a.buckets||[]).reduce(function(s,b){return s+(b.value||0);},0);
+  }
 
   function derive(){
     var inc=D.income.salary.monthly+D.income.spouse.monthly;
     var exp=D.expenses.reduce(function(s,e){return s+e.monthly;},0);
     var sav=D.savings.reduce(function(s,e){return s+e.monthly;},0);
-    var assets=D.assets.map(function(a){
-      var v=a.value;
-      if(a.unknown&&stockValue!=null){
-        var tot=D.assets.filter(function(x){return x.unknown;}).reduce(function(s,x){return s+(x.monthlyAdd||0);},0);
-        v=tot?stockValue*(a.monthlyAdd||0)/tot:0;
-      }
-      return Object.assign({},a,{value:v});
-    });
     var byClass={};
-    assets.forEach(function(a){ if(a.value) byClass[a.class]=(byClass[a.class]||0)+a.value; });
-    var totalAssets=assets.reduce(function(s,a){return s+(a.value||0);},0);
+    D.accounts.forEach(function(a){ byClass[a.class]=(byClass[a.class]||0)+acctTotal(a); });
+    var totalAssets=D.accounts.reduce(function(s,a){return s+acctTotal(a);},0);
     var totalDebt=D.liabilities.reduce(function(s,l){return s+l.balance;},0);
     return {inc:inc,exp:exp,sav:sav,bonus:D.income.bonus.annual,
-      annualIncome:inc*12+D.income.bonus.annual, assets:assets, byClass:byClass,
-      totalAssets:totalAssets, totalDebt:totalDebt, netWorth:totalAssets-totalDebt,
-      hasUnknown:assets.some(function(a){return a.unknown&&a.value==null;})};
+      annualIncome:inc*12+D.income.bonus.annual, byClass:byClass,
+      totalAssets:totalAssets,totalDebt:totalDebt,netWorth:totalAssets-totalDebt};
   }
 
+  /* 매수 시점의 가용 자기자본. 용도가 확정된 금고(산후조리원·시터비용)는 제외한다. */
   function equityAt(m){
-    var jeonse=m.assets.find(function(a){return a.id==='jeonse';}).value;
-    var cash=m.assets.filter(function(a){return a.class==='cash'&&a.id!=='cash-postpartum';})
-                     .reduce(function(s,a){return s+a.value;},0);
-    var stock=m.assets.filter(function(a){return a.class==='equity';})
-                      .reduce(function(s,a){return s+(a.value||0);},0);
-    var accrue=m.sav*months(D.asOf,'2027-05');
-    return {jeonseNet:jeonse-m.totalDebt, cash:cash, stock:stock, accrue:accrue, bonus:m.bonus,
+    var RESERVED=['postpartum','sitter'];
+    var jeonse=acctTotal(D.accounts.find(function(a){return a.id==='jeonse';}));
+    var cash=0, reserved=0;
+    D.accounts.filter(function(a){return a.class==='cash';}).forEach(function(a){
+      cash+=(a.value||0);
+      (a.buckets||[]).forEach(function(b){
+        if(RESERVED.indexOf(b.purpose)>=0) reserved+=b.value; else cash+=b.value;
+      });
+    });
+    var stock=D.accounts.filter(function(a){return a.class==='equity';})
+                        .reduce(function(s,a){return s+acctTotal(a);},0);
+    var accrue=m.sav*months(D.asOf.slice(0,7),'2027-05');
+    return {jeonseNet:jeonse-m.totalDebt,cash:cash,reserved:reserved,stock:stock,
+            accrue:accrue,bonus:m.bonus,
             total:(jeonse-m.totalDebt)+cash+stock+accrue+m.bonus};
   }
 
@@ -286,51 +289,68 @@
     var r=A.mortgageRate/100/12, mtgPay=mortgage>0?mortgage*r/(1-Math.pow(1+r,-360)):0;
     var propTax=price*(A.propertyTaxRate/100)/12;
     var monthlyCost=corpInt+imputed+mtgPay+propTax;
-    var sitter=160, support=110;
+    var support=1100000;
     var jeonseInt=D.expenses.find(function(e){return e.linkedTo==='loan-jeonse';}).monthly;
-    var free=m.inc+support-(m.exp-jeonseInt+sitter)-monthlyCost;
+    var free=m.inc+support-(m.exp-jeonseInt+A.sitterMonthly)-monthlyCost;
     var dsr=(corp*0.015+mtgPay*12)/m.annualIncome*100;
     return {price:price,need:need,own:own,corp:corp,mortgage:mortgage,
-      leftoverCash:Math.max(0,eq.total-need), monthlyCost:monthlyCost, free:free, dsr:dsr,
-      corpInt:corpInt, imputed:imputed, mtgPay:mtgPay, propTax:propTax, eq:eq};
+      leftoverCash:Math.max(0,eq.total-need),monthlyCost:monthlyCost,free:free,dsr:dsr,
+      corpInt:corpInt,imputed:imputed,mtgPay:mtgPay,propTax:propTax,eq:eq};
   }
 
   function verdictOf(s){
     if(s.free<0) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.'};
     if(s.dsr>D.assumptions.dsrLimit) return {t:'규제 초과',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'DSR 한도를 넘습니다. 대출이 그만큼 안 나올 가능성이 높습니다.'};
-    if(s.free<100) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',d:'유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.'};
-    if(s.free<220) return {t:'적정',c:'var(--steel)',bg:'rgba(91,140,184,.12)',d:'감당 가능하고 저축도 이어집니다. 예비비를 함께 확인하세요.'};
+    if(s.free<1000000) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',d:'유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.'};
+    if(s.free<2200000) return {t:'적정',c:'var(--steel)',bg:'rgba(91,140,184,.12)',d:'감당 가능하고 저축도 이어집니다. 예비비를 함께 확인하세요.'};
     return {t:'여유',c:'var(--jade)',bg:'rgba(78,158,127,.12)',d:'부담이 크지 않습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.'};
   }
 
-  /* ── 렌더 조각 ── */
-  function lineRow(label,tag,value,color,warnTag){
+  function acctRow(a){
     var r=el('div','ln');
-    var b=el('s'); b.style.background=color; r.appendChild(b);
-    r.appendChild(el('span','ln__n',label));
-    var t=el('span',warnTag?'ln__t warn':'ln__t',tag); r.appendChild(t);
-    var v=el('span','ln__v num',value); r.appendChild(v);
+    var b=el('s'); b.style.background=CLS[a.class].color; r.appendChild(b);
+    var name=el('span','ln__n',a.label); r.appendChild(name);
+    if(a.institution) r.appendChild(el('span','ln__i',a.institution));
+    if(a.returnPct!=null){
+      var ret=el('span','ret',(a.returnPct>0?'+':'')+a.returnPct+'%');
+      ret.style.color=a.returnPct>0?'var(--jade)':(a.returnPct<0?'var(--clay)':'var(--faint)');
+      r.appendChild(ret);
+    } else if(a.liquidity==='locked'){
+      r.appendChild(el('span','ln__t','묶임'));
+    }
+    r.appendChild(el('span','ln__v num',man(acctTotal(a))));
     return r;
+  }
+  function bucketRow(b){
+    var r=el('div','ln ln--sub');
+    r.appendChild(el('s'));
+    r.appendChild(el('span','ln__n','↳ '+b.label));
+    if(b.spendAt) r.appendChild(el('span','ln__t',b.spendAt+' 소진'));
+    else if(b.drawFrom) r.appendChild(el('span','ln__t',b.drawFrom+'~ 사용'));
+    r.appendChild(el('span','ln__v num',man(b.value)));
+    return r;
+  }
+  function totalRow(label,value,color){
+    var t=el('div','ln ln--tot'); t.appendChild(el('s'));
+    t.appendChild(el('span','ln__n',label)); t.appendChild(el('span','ln__t',''));
+    var v=el('span','ln__v num',man(value)); if(color)v.style.color=color;
+    t.appendChild(v); return t;
   }
 
   function renderView(key,mountId){
-    var v=D.views&&D.views[key]; var box=$(mountId);
-    box.innerHTML='';
+    var v=D.views&&D.views[key], box=$(mountId); box.innerHTML='';
     if(!v){ box.appendChild(el('p','note','판단 기록 없음')); return; }
     box.appendChild(el('h3','view__h',v.headline));
     v.points.forEach(function(p){
       var r=el('div','pt pt--'+(p.tone||'info'));
-      r.appendChild(el('s'));
-      r.appendChild(el('span',null,p.t));
-      box.appendChild(r);
+      r.appendChild(el('s')); r.appendChild(el('span',null,p.t)); box.appendChild(r);
     });
   }
 
   function renderTop(m){
     $('asOf').textContent=D.asOf+' 기준';
     $('nwV').textContent=eok(m.netWorth);
-    $('nwS').innerHTML='자산 <b>'+eok(m.totalAssets)+'억</b>  −  부채 <i>'+eok(m.totalDebt)+'억</i>'
-      +(m.hasUnknown?'  <span style="color:var(--brass)">· 주식 미반영</span>':'');
+    $('nwS').innerHTML='자산 <b>'+eok(m.totalAssets)+'억</b>  −  부채 <i>'+eok(m.totalDebt)+'억</i>';
     var stack=$('stack'), keys=$('keys'); stack.innerHTML=''; keys.innerHTML='';
     Object.keys(CLS).forEach(function(k){
       var v=m.byClass[k]||0; if(!v) return;
@@ -340,9 +360,9 @@
       key.appendChild(el('em',null,eok(v)+'억')); keys.appendChild(key);
     });
     var strip=$('strip'); strip.innerHTML='';
-    [['월 순유입',n(m.inc-m.exp)+'만','수입 '+n(m.inc)+' − 지출 '+n(m.exp)],
-     ['저축률',Math.round(m.sav/m.inc*100)+'%','월 '+n(m.sav)+'만 적립'],
-     ['연 소득',eok1(m.annualIncome)+'억','보너스 '+n(m.bonus)+' 포함'],
+    [['월 순유입',man(m.inc-m.exp)+'만','수입 '+man(m.inc)+' − 지출 '+man(m.exp)],
+     ['저축률',Math.round(m.sav/m.inc*100)+'%','월 '+man(m.sav)+'만 적립'],
+     ['연 소득',eok1(m.annualIncome)+'억','보너스 '+man(m.bonus)+' 포함'],
      ['부채비율',Math.round(m.totalDebt/m.totalAssets*100)+'%','부채 '+eok(m.totalDebt)+'억']
     ].forEach(function(row){
       var d=el('div','met');
@@ -357,13 +377,9 @@
     var bar=$('tabs'); bar.innerHTML='';
     TABS.forEach(function(t){
       var b=el('button','tab'+(t.id==='overview'?' on':''));
-      b.setAttribute('data-tab',t.id);
       var s=el('s'); s.style.background=t.color; b.appendChild(s);
       b.appendChild(document.createTextNode(t.label));
-      if(t.id!=='overview'){
-        var v=m.byClass[t.id];
-        b.appendChild(el('span','tab__v',v?eok1(v)+'억':'—'));
-      }
+      if(t.id!=='overview') b.appendChild(el('span','tab__v',m.byClass[t.id]?eok1(m.byClass[t.id])+'억':'—'));
       b.addEventListener('click',function(){
         document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
         b.classList.add('on');
@@ -377,54 +393,50 @@
 
   function renderLists(m){
     var all=$('allLines'); all.innerHTML='';
-    m.assets.forEach(function(a){
-      all.appendChild(lineRow(a.label,
-        a.liquidity==='locked'?'묶임':(a.unknown&&a.value==null?'미파악':CLS[a.class].label),
-        a.value==null?'—':n(a.value), CLS[a.class].color, a.unknown&&a.value==null));
+    D.accounts.forEach(function(a){
+      all.appendChild(acctRow(a));
+      (a.buckets||[]).forEach(function(b){ all.appendChild(bucketRow(b)); });
     });
     D.liabilities.forEach(function(l){
-      var r=lineRow(l.label,l.rate+'%','−'+n(l.balance),'var(--clay)');
-      r.querySelector('.ln__v').style.color='var(--clay)'; all.appendChild(r);
+      var r=el('div','ln'); var s=el('s'); s.style.background='var(--clay)'; r.appendChild(s);
+      r.appendChild(el('span','ln__n',l.label));
+      r.appendChild(el('span','ln__i',l.lender));
+      var ret=el('span','ret',l.rate+'%'); ret.style.color='var(--clay)'; r.appendChild(ret);
+      var v=el('span','ln__v num','−'+man(l.balance)); v.style.color='var(--clay)'; r.appendChild(v);
+      all.appendChild(r);
     });
-    var tot=el('div','ln ln--tot'); tot.appendChild(el('s'));
-    tot.appendChild(el('span','ln__n','순자산')); tot.appendChild(el('span','ln__t',''));
-    var tv=el('span','ln__v num',n(m.netWorth)); tv.style.color='var(--brass)'; tot.appendChild(tv);
-    all.appendChild(tot);
+    all.appendChild(totalRow('순자산',m.netWorth,'var(--brass)'));
 
-    // 클래스별
     [['realestate','reLines'],['equity','eqLines'],['cash','cashLines'],['pension','penLines']].forEach(function(pair){
       var box=$(pair[1]); box.innerHTML='';
-      var rows=m.assets.filter(function(a){return a.class===pair[0];});
-      if(!rows.length){ box.appendChild(el('div','empty','항목 없음')); }
+      var rows=D.accounts.filter(function(a){return a.class===pair[0];});
+      if(!rows.length){ box.appendChild(el('div','empty','항목 없음')); return; }
       rows.forEach(function(a){
-        var tag=a.monthlyAdd?('월 +'+n(a.monthlyAdd)):(a.liquidity==='locked'?'묶임':'');
-        box.appendChild(lineRow(a.label,tag,a.value==null?'—':n(a.value),CLS[a.class].color,a.unknown&&a.value==null));
+        box.appendChild(acctRow(a));
+        (a.buckets||[]).forEach(function(b){ box.appendChild(bucketRow(b)); });
       });
       if(pair[0]==='realestate'){
         D.liabilities.forEach(function(l){
-          var r=lineRow(l.label,l.rate+'% · '+l.lender,'−'+n(l.balance),'var(--clay)');
-          r.querySelector('.ln__v').style.color='var(--clay)'; box.appendChild(r);
+          var r=el('div','ln'); var s=el('s'); s.style.background='var(--clay)'; r.appendChild(s);
+          r.appendChild(el('span','ln__n',l.label));
+          r.appendChild(el('span','ln__i',l.lender));
+          var ret=el('span','ret',l.rate+'%'); ret.style.color='var(--clay)'; r.appendChild(ret);
+          var v=el('span','ln__v num','−'+man(l.balance)); v.style.color='var(--clay)'; r.appendChild(v);
+          box.appendChild(r);
         });
-        var net=el('div','ln ln--tot'); net.appendChild(el('s'));
-        net.appendChild(el('span','ln__n','순 부동산자산')); net.appendChild(el('span','ln__t',''));
-        var v=el('span','ln__v num',n((m.byClass.realestate||0)-m.totalDebt)); v.style.color='var(--jade)';
-        net.appendChild(v); box.appendChild(net);
-      }
-      if(rows.length>1){
-        var t=el('div','ln ln--tot'); t.appendChild(el('s'));
-        t.appendChild(el('span','ln__n','합계')); t.appendChild(el('span','ln__t',''));
-        t.appendChild(el('span','ln__v num',m.byClass[pair[0]]?n(m.byClass[pair[0]]):'—'));
-        if(pair[0]!=='realestate') box.appendChild(t);
+        box.appendChild(totalRow('순 부동산자산',(m.byClass.realestate||0)-m.totalDebt,'var(--jade)'));
+      } else if(rows.length>1){
+        box.appendChild(totalRow('합계',m.byClass[pair[0]]||0));
       }
     });
 
-    var pen=m.assets.find(function(a){return a.class==='pension';});
-    $('penNote').innerHTML='회사 납입 <b>월 '+n(pen.monthlyAdd)+'만원 (연 '+n(pen.monthlyAdd*12)
-      +'만원)</b>. 매수 가용자금 계산에서는 제외되지만 노후 자산으로는 계속 쌓인다.';
+    var pen=D.accounts.find(function(a){return a.class==='pension';});
+    $('penNote').innerHTML='회사 납입 <b>월 '+man(pen.monthlyAdd)+'만원 (연 '+man(pen.monthlyAdd*12)
+      +'만원)</b>. 매수 가용자금에서는 제외되지만 순자산에는 포함된다.';
   }
 
   function renderSim(m){
-    var s=simulate(+$('pSlider').value,m);
+    var s=simulate(+$('pSlider').value*1e4,m);
     $('pV').textContent=eok1(s.price);
     $('pCap').textContent='취득세 포함 '+eok1(s.need)+'억 필요';
     var fund=$('fund'), fk=$('fundKeys'); fund.innerHTML=''; fk.innerHTML='';
@@ -437,10 +449,10 @@
       k.appendChild(document.createTextNode(p[0]+' ')); k.appendChild(el('em',null,eok1(p[1])+'억')); fk.appendChild(k);
     });
     var out=$('out'); out.innerHTML='';
-    [['월 주거비용',n(s.monthlyCost)+'만',null],
-     ['상환 후 월 여유',n(s.free)+'만',s.free<0?'var(--clay)':(s.free<100?'var(--brass)':'var(--jade)')],
+    [['월 주거비용',man(s.monthlyCost)+'만',null],
+     ['상환 후 월 여유',man(s.free)+'만',s.free<0?'var(--clay)':(s.free<1e6?'var(--brass)':'var(--jade)')],
      ['DSR',s.dsr.toFixed(0)+'%',s.dsr>D.assumptions.dsrLimit?'var(--clay)':null],
-     ['매수 후 여유현금',n(s.leftoverCash)+'만',s.leftoverCash<2000?'var(--brass)':null]
+     ['매수 후 여유현금',man(s.leftoverCash)+'만',s.leftoverCash<2e7?'var(--brass)':null]
     ].forEach(function(row){
       var d=el('div'); d.appendChild(el('div','out__k',row[0]));
       var v=el('div','out__v num',row[1]); if(row[2])v.style.color=row[2]; d.appendChild(v); out.appendChild(d);
@@ -450,20 +462,22 @@
     box.appendChild(b); box.appendChild(el('span',null,vd.d));
     $('simNote').innerHTML='<b>가용 자기자본 '+eok1(s.eq.total)+'억</b> = 순전세 '+eok1(s.eq.jeonseNet)
       +' + 현금 '+eok1(s.eq.cash)+' + 주식 '+eok1(s.eq.stock)+' + 적립 '+eok1(s.eq.accrue)
-      +' + 보너스 '+eok1(s.eq.bonus)+' (억)<br>월 주거비용: 회사대출 이자 '+n(s.corpInt)
-      +' + 간주이자 세금 '+n(s.imputed)+' + 주담대 원리금 '+n(s.mtgPay)+' + 보유세 '+n(s.propTax)+' (만원)<br>'
-      +'월 여유는 <b>시터비 160만·부모급여 110만을 반영한 2027-05 기준</b>. 연금저축은 제외.';
+      +' + 보너스 '+eok1(s.eq.bonus)+' (억)<br>'
+      +'용도가 확정된 금고(산후조리원·시터비용) <b>'+man(s.eq.reserved)+'만원</b>과 연금저축은 제외했다.<br>'
+      +'월 주거비용: 회사대출 이자 '+man(s.corpInt)+' + 간주이자 세금 '+man(s.imputed)
+      +' + 주담대 원리금 '+man(s.mtgPay)+' + 보유세 '+man(s.propTax)+' (만원)<br>'
+      +'월 여유는 <b>시터비 '+man(D.assumptions.sitterMonthly)+'만·부모급여 110만을 반영한 2027-05 기준</b>.';
     return s;
   }
 
   function project(m,s){
-    var A=D.assumptions, Y=15, invR=A.investReturn/100, homeR=A.homeAppreciation/100;
+    var A=D.assumptions,Y=15,invR=A.investReturn/100,homeR=A.homeAppreciation/100;
     var annualSave=m.sav*12+m.bonus;
-    var rD=m.assets.find(function(a){return a.id==='jeonse';}).value, rDebt=m.totalDebt;
+    var rD=acctTotal(D.accounts.find(function(a){return a.id==='jeonse';})), rDebt=m.totalDebt;
     var rInv=s.eq.cash+s.eq.stock;
-    var bHome=s.price, bDebt=s.corp+s.mortgage, bInv=s.leftoverCash;
+    var bHome=s.price,bDebt=s.corp+s.mortgage,bInv=s.leftoverCash;
     var bSave=Math.max(0,s.free)*12+m.bonus;
-    var rent=[], buy=[];
+    var rent=[],buy=[];
     for(var y=0;y<=Y;y++){
       rent.push(rD-rDebt+rInv); buy.push(bHome-bDebt+bInv);
       if(y===Y) break;
@@ -478,7 +492,7 @@
 
   function renderChart(m,s){
     var p=project(m,s), svg=$('proj');
-    var W=660,H=250,L=46,R=12,T=14,B=30;
+    var W=660,H=250,L=48,R=12,T=14,B=30;
     var all=p.rent.concat(p.buy);
     var lo=Math.min(0,Math.min.apply(null,all)), hi=Math.max.apply(null,all)*1.06;
     var x=function(i){return L+i/p.years*(W-L-R);};
@@ -486,11 +500,11 @@
     var NS='http://www.w3.org/2000/svg';
     function mk(t,a){var e=document.createElementNS(NS,t); for(var k in a)e.setAttribute(k,a[k]); return e;}
     svg.innerHTML='';
-    var step=Math.max(50000,Math.ceil(hi/4/50000)*50000);
+    var step=Math.max(5e8,Math.ceil(hi/4/5e8)*5e8);
     for(var g=0;g<=hi;g+=step){
       svg.appendChild(mk('line',{x1:L,y1:y(g),x2:W-R,y2:y(g),stroke:'var(--line-2)'}));
       var t=mk('text',{x:L-7,y:y(g)+3.5,'text-anchor':'end',class:'glabel'});
-      t.textContent=(g/10000).toFixed(0)+'억'; svg.appendChild(t);
+      t.textContent=(g/1e8).toFixed(0)+'억'; svg.appendChild(t);
     }
     [0,5,10,15].forEach(function(i){
       var t=mk('text',{x:x(i),y:H-10,'text-anchor':'middle',class:'glabel'});
@@ -523,14 +537,11 @@
     ['realestate','equity','cash','pension'].forEach(function(k){
       renderView(k,'v'+k.charAt(0).toUpperCase()+k.slice(1));
     });
-    var s=renderSim(m); renderChart(m,s);
+    renderChart(m,renderSim(m));
     $('stamp').textContent=D.updatedAt?'갱신 '+D.updatedAt.slice(0,10):'';
   }
 
   $('pSlider').addEventListener('input',function(){ var m=derive(); renderChart(m,renderSim(m)); });
-  $('stockIn').addEventListener('input',function(){
-    var v=parseFloat(this.value); stockValue=isNaN(v)?null:v; renderAll();
-  });
 
   fetch(API)
     .then(function(r){ if(!r.ok) throw new Error('불러오기 실패 ('+r.status+')'); return r.json(); })
