@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>New Life Check-in</title>
+<style>
+  :root {
+    --bg: #EDEAE2;
+    --surface: #F8F6F1;
+    --ink: #221F1A;
+    --ink-muted: #6E675A;
+    --ink-faint: #9C9384;
+    --accent: #A8722F;
+    --accent-soft: #E8D9BE;
+    --good: #4C7A5C;
+    --good-soft: #DCE7DE;
+    --warn: #B23F30;
+    --warn-soft: #F1DCD7;
+    --line: #D9D2C4;
+    --h-gym: #4C7A5C;
+    --h-sleep: #A8722F;
+    --h-english: #3E7382;
+    --h-dishes: #8A5A6D;
+    --radius: 6px;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16130E; --surface: #1E1A13; --ink: #F1ECE1; --ink-muted: #A79A85;
+      --ink-faint: #7A7160; --accent: #D89A4E; --accent-soft: #3B2C18;
+      --good: #7EB58F; --good-soft: #22322A; --warn: #E17163; --warn-soft: #3A241F;
+      --line: #332B1F;
+      --h-gym: #7EB58F; --h-sleep: #D89A4E; --h-english: #6FA8B8; --h-dishes: #C08FA0;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .page { max-width: 480px; margin: 0 auto; padding: 28px 20px 60px; }
+  .wordmark { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 20px; }
+
+  .status {
+    font-family: var(--font-mono); font-size: 11.5px; padding: 8px 12px; border-radius: var(--radius);
+    margin-bottom: 16px; display: none;
+  }
+  .status.show { display: block; }
+  .status--ok { background: var(--good-soft); color: var(--good); }
+  .status--err { background: var(--warn-soft); color: var(--warn); }
+  .status--busy { background: var(--accent-soft); color: var(--accent); }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+
+  .check {
+    display: flex; align-items: center; gap: 12px; width: 100%; padding: 15px 16px;
+    background: none; border: none; border-bottom: 1px solid var(--line); font-family: inherit;
+    font-size: 16px; color: var(--ink); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .check:last-child { border-bottom: none; }
+  .check:disabled { opacity: 0.5; }
+  .check__box {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--ink-faint);
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s;
+  }
+  .check__box svg { width: 13px; height: 13px; opacity: 0; transition: opacity 0.15s; }
+  .check.is-done .check__box { border-color: transparent; }
+  .check.is-done .check__box svg { opacity: 1; }
+  .check.is-done[data-habit="gym"] .check__box { background: var(--h-gym); }
+  .check.is-done[data-habit="sleep"] .check__box { background: var(--h-sleep); }
+  .check.is-done[data-habit="english"] .check__box { background: var(--h-english); }
+  .check.is-done[data-habit="dishes"] .check__box { background: var(--h-dishes); }
+  .check.is-done .check__label { color: var(--ink-muted); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+  .check__meta { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+
+  .date-nav {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    font-family: var(--font-mono); font-size: 13px; color: var(--ink-muted);
+  }
+  .date-nav button {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 6px 12px; font-family: inherit; cursor: pointer; color: var(--ink); font-size: 14px;
+  }
+
+  section { margin-bottom: 20px; }
+  .section__title { font-size: 13px; font-weight: 600; color: var(--ink-muted); margin: 0 0 10px; padding: 0 2px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; }
+  .stat { padding: 14px; text-align: center; border-bottom: 1px solid var(--line); }
+  .stat:nth-child(odd) { border-right: 1px solid var(--line); }
+  .stat:nth-last-child(-n+2) { border-bottom: none; }
+  .stat__value { font-family: var(--font-mono); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat__label { font-size: 11.5px; color: var(--ink-muted); margin-top: 4px; }
+
+  .history__row { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+  .history__row + .history__row { border-top: 1px solid var(--line); }
+  .history__label { font-size: 12.5px; color: var(--ink-muted); width: 52px; flex-shrink: 0; }
+  .history__strip { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; flex: 1; min-width: 0; }
+  .history__cell { aspect-ratio: 1; border-radius: 3px; background: var(--line); }
+  .history__cell.is-today { box-shadow: 0 0 0 1.5px var(--accent); }
+  .history__cell.is-done[data-h="gym"] { background: var(--h-gym); }
+  .history__cell.is-done[data-h="sleep"] { background: var(--h-sleep); }
+  .history__cell.is-done[data-h="english"] { background: var(--h-english); }
+  .history__cell.is-done[data-h="dishes"] { background: var(--h-dishes); }
+  .history__range { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); padding: 0 16px 14px; text-align: right; }
+
+  .calendar__header {
+    display: flex; align-items: center; justify-content: space-between; padding: 12px 14px;
+    border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: 13px;
+  }
+  .calendar__header button {
+    background: none; border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 4px 12px; cursor: pointer; color: var(--ink); font-family: inherit; font-size: 13px;
+  }
+  .calendar__weekdays {
+    display: grid; grid-template-columns: repeat(7, 1fr); padding: 10px 8px 0;
+    font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); text-align: center;
+  }
+  .calendar__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 6px 8px 4px; }
+  .cal-cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 6px; gap: 3px;
+  }
+  .cal-cell.is-empty { visibility: hidden; }
+  .cal-cell.is-today { box-shadow: 0 0 0 1.5px var(--accent); }
+  .cal-cell.is-future { opacity: 0.35; }
+  .cal-cell.is-clickable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .cal-cell.is-selected { background: var(--accent-soft); }
+  .cal-cell__num { font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+  .cal-cell__dots { display: flex; gap: 2px; }
+  .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--line); }
+  .cal-dot.on[data-h="gym"] { background: var(--h-gym); }
+  .cal-dot.on[data-h="sleep"] { background: var(--h-sleep); }
+  .cal-dot.on[data-h="english"] { background: var(--h-english); }
+  .cal-dot.on[data-h="dishes"] { background: var(--h-dishes); }
+  .calendar__legend {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 12px 16px 6px;
+    font-size: 11.5px; color: var(--ink-muted);
+  }
+  .calendar__legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend__dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .calendar__legend-note {
+    grid-column: 1 / -1; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+    padding: 2px 0 10px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="wordmark">New Life Check-in</div>
+
+  <div class="date-nav">
+    <button id="prevDay">‹</button>
+    <span id="currentDate">—</span>
+    <button id="nextDay">›</button>
+  </div>
+
+  <div class="status" id="statusBar"></div>
+
+  <div class="card" id="checkCard"></div>
+
+  <section>
+    <p class="section__title">이번 주</p>
+    <div class="card stats" id="statsGrid"></div>
+  </section>
+
+  <section>
+    <p class="section__title">최근 14일</p>
+    <div class="card" id="historyCard">
+      <div id="historyRows"></div>
+      <div class="history__range" id="historyRange"></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="section__title">달력</p>
+    <div class="card">
+      <div class="calendar__header">
+        <button id="prevMonth">‹</button>
+        <span id="calMonthLabel">—</span>
+        <button id="nextMonth">›</button>
+      </div>
+      <div class="calendar__weekdays">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+      </div>
+      <div class="calendar__grid" id="calGrid"></div>
+      <div class="calendar__legend" id="calLegend"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var HABITS = [
+    { key: 'gym',     label: '헬스',          short: '헬스',   meta: '주 2~3회', weekly: 'count', target: '목표 2~3회' },
+    { key: 'sleep',   label: '11시 전 잠자리', short: '취침',   meta: '매일',     weekly: 'ratio', target: '11시 취침' },
+    { key: 'english', label: '영어 문장 암기', short: '영어',   meta: '매일',     weekly: 'ratio', target: '영어 암기' },
+    { key: 'dishes',  label: '저녁 설거지',    short: '설거지', meta: '매일',     weekly: 'ratio', target: '설거지' }
+  ];
+  var API = '/.netlify/functions/checkin';
+  var viewDate = new Date();
+  viewDate.setHours(0, 0, 0, 0);
+  var calMonth = new Date(); calMonth.setDate(1); calMonth.setHours(0, 0, 0, 0);
+  var cachedLog = {};
+
+  function dstr(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+  function todayMidnight() { var t = new Date(); t.setHours(0, 0, 0, 0); return t; }
+
+  function showStatus(text, kind) {
+    var el = document.getElementById('statusBar');
+    el.textContent = text;
+    el.className = 'status show status--' + kind;
+  }
+  function hideStatus() { document.getElementById('statusBar').className = 'status'; }
+  function setDisabled(disabled) {
+    document.querySelectorAll('.check').forEach(function (b) { b.disabled = disabled; });
+  }
+
+  // --- build static markup from HABITS ---
+  var checkCard = document.getElementById('checkCard');
+  HABITS.forEach(function (h) {
+    var btn = document.createElement('button');
+    btn.className = 'check';
+    btn.setAttribute('data-habit', h.key);
+    btn.innerHTML =
+      '<span class="check__box"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+      '<span class="check__label"></span>' +
+      '<span class="check__meta"></span>';
+    btn.querySelector('.check__label').textContent = h.label;
+    btn.querySelector('.check__meta').textContent = h.meta;
+    btn.addEventListener('click', function () { toggleHabit(h.key); });
+    checkCard.appendChild(btn);
+  });
+
+  var statsGrid = document.getElementById('statsGrid');
+  HABITS.forEach(function (h) {
+    var cell = document.createElement('div');
+    cell.className = 'stat';
+    cell.innerHTML = '<div class="stat__value" id="stat-' + h.key + '">–</div><div class="stat__label"></div>';
+    cell.querySelector('.stat__label').textContent = h.target;
+    statsGrid.appendChild(cell);
+  });
+
+  var historyRows = document.getElementById('historyRows');
+  HABITS.forEach(function (h) {
+    var row = document.createElement('div');
+    row.className = 'history__row';
+    row.innerHTML = '<span class="history__label"></span><div class="history__strip" id="strip-' + h.key + '"></div>';
+    row.querySelector('.history__label').textContent = h.short;
+    historyRows.appendChild(row);
+  });
+
+  var legend = document.getElementById('calLegend');
+  HABITS.forEach(function (h) {
+    var item = document.createElement('span');
+    item.className = 'calendar__legend-item';
+    item.innerHTML = '<span class="legend__dot" style="background: var(--h-' + h.key + ')"></span><span></span>';
+    item.querySelector('span:last-child').textContent = h.short;
+    legend.appendChild(item);
+  });
+  var note = document.createElement('span');
+  note.className = 'calendar__legend-note';
+  note.textContent = '날짜 아래 점 순서: ' + HABITS.map(function (h) { return h.short; }).join(' · ');
+  legend.appendChild(note);
+
+  // --- data rendering ---
+  function renderChecks(dayData) {
+    HABITS.forEach(function (h) {
+      var btn = document.querySelector('.check[data-habit="' + h.key + '"]');
+      btn.classList.toggle('is-done', !!(dayData && dayData[h.key]));
+    });
+  }
+
+  // Everything renders off cachedLog, so switching dates costs no network round trip.
+  function renderAll() {
+    document.getElementById('currentDate').textContent = dstr(viewDate);
+    renderChecks(cachedLog[dstr(viewDate)] || {});
+    renderWeekStats(cachedLog);
+    renderHistoryStrip(cachedLog);
+    renderCalendar(cachedLog);
+  }
+
+  // Writes are serialized: GitHub rejects concurrent commits with a stale sha.
+  var writeQueue = Promise.resolve();
+
+  function setLocal(date, habit, value) {
+    if (!cachedLog[date]) cachedLog[date] = {};
+    cachedLog[date][habit] = value;
+  }
+
+  function toggleHabit(habit) {
+    var date = dstr(viewDate);
+    var prev = !!(cachedLog[date] && cachedLog[date][habit]);
+
+    // Flip the UI first; the network write happens behind it.
+    setLocal(date, habit, !prev);
+    renderAll();
+    showStatus('저장 중...', 'busy');
+
+    writeQueue = writeQueue.then(function () {
+      return fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: date, habit: habit })
+      })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (e) { throw new Error(e.error || ('저장 실패 ' + res.status)); });
+          return res.json();
+        })
+        .then(function (result) {
+          if (result.log) cachedLog = result.log;
+          renderAll();
+          showStatus('저장됨', 'ok');
+          setTimeout(hideStatus, 1000);
+        })
+        .catch(function (err) {
+          setLocal(date, habit, prev);
+          renderAll();
+          showStatus('저장 실패 — ' + err.message, 'err');
+        });
+    });
+  }
+
+  function mondayOf(d) {
+    var day = d.getDay();
+    var monday = new Date(d);
+    monday.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }
+
+  function renderWeekStats(fullData) {
+    var today = todayMidnight();
+    var days = [];
+    var cur = mondayOf(today);
+    while (cur <= today) { days.push(dstr(cur)); cur.setDate(cur.getDate() + 1); }
+    HABITS.forEach(function (h) {
+      var n = days.filter(function (d) { return fullData[d] && fullData[d][h.key]; }).length;
+      document.getElementById('stat-' + h.key).textContent =
+        h.weekly === 'count' ? n + '회' : n + '/' + days.length;
+    });
+  }
+
+  function renderHistoryStrip(fullData) {
+    var today = todayMidnight();
+    var todayStr = dstr(today);
+    var dates = [];
+    for (var i = 13; i >= 0; i--) { var d = new Date(today); d.setDate(today.getDate() - i); dates.push(d); }
+    HABITS.forEach(function (h) {
+      var strip = document.getElementById('strip-' + h.key);
+      strip.innerHTML = '';
+      dates.forEach(function (d) {
+        var ds = dstr(d);
+        var cell = document.createElement('div');
+        cell.className = 'history__cell' + (fullData[ds] && fullData[ds][h.key] ? ' is-done' : '') + (ds === todayStr ? ' is-today' : '');
+        cell.setAttribute('data-h', h.key);
+        cell.title = ds;
+        strip.appendChild(cell);
+      });
+    });
+    document.getElementById('historyRange').textContent = dstr(dates[0]) + ' ~ ' + dstr(dates[13]);
+  }
+
+  function renderCalendar(fullData) {
+    document.getElementById('calMonthLabel').textContent = calMonth.getFullYear() + '년 ' + (calMonth.getMonth() + 1) + '월';
+    var grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    var startWeekday = calMonth.getDay();
+    var daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
+    var today = todayMidnight();
+    var todayStr = dstr(today);
+    var selectedStr = dstr(viewDate);
+
+    for (var i = 0; i < startWeekday; i++) {
+      var empty = document.createElement('div');
+      empty.className = 'cal-cell is-empty';
+      grid.appendChild(empty);
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      var d = new Date(calMonth.getFullYear(), calMonth.getMonth(), day);
+      var ds = dstr(d);
+      var isFuture = d > today;
+      var cell = document.createElement('div');
+      cell.className = 'cal-cell'
+        + (ds === todayStr ? ' is-today' : '')
+        + (isFuture ? ' is-future' : ' is-clickable')
+        + (ds === selectedStr ? ' is-selected' : '');
+      if (!isFuture) {
+        cell.addEventListener('click', (function (clicked) {
+          return function () { viewDate = clicked; renderAll(); };
+        })(new Date(d)));
+      }
+      var num = document.createElement('div');
+      num.className = 'cal-cell__num';
+      num.textContent = day;
+      var dots = document.createElement('div');
+      dots.className = 'cal-cell__dots';
+      HABITS.forEach(function (h) {
+        var dot = document.createElement('span');
+        dot.className = 'cal-dot' + (fullData[ds] && fullData[ds][h.key] ? ' on' : '');
+        dot.setAttribute('data-h', h.key);
+        dots.appendChild(dot);
+      });
+      cell.appendChild(num);
+      cell.appendChild(dots);
+      grid.appendChild(cell);
+    }
+  }
+
+  // The only read from the network: one full-log fetch at startup.
+  function loadAll() {
+    showStatus('불러오는 중...', 'busy');
+    setDisabled(true);
+    fetch(API)
+      .then(function (res) { if (!res.ok) throw new Error('불러오기 실패 (' + res.status + ')'); return res.json(); })
+      .then(function (fullData) {
+        cachedLog = fullData;
+        hideStatus();
+        setDisabled(false);
+        renderAll();
+      })
+      .catch(function (err) { showStatus(err.message, 'err'); setDisabled(false); });
+  }
+
+  document.getElementById('prevDay').addEventListener('click', function () {
+    viewDate.setDate(viewDate.getDate() - 1); renderAll();
+  });
+  document.getElementById('nextDay').addEventListener('click', function () {
+    if (viewDate < todayMidnight()) { viewDate.setDate(viewDate.getDate() + 1); renderAll(); }
+  });
+  document.getElementById('prevMonth').addEventListener('click', function () {
+    calMonth.setMonth(calMonth.getMonth() - 1); renderCalendar(cachedLog);
+  });
+  document.getElementById('nextMonth').addEventListener('click', function () {
+    calMonth.setMonth(calMonth.getMonth() + 1); renderCalendar(cachedLog);
+  });
+
+  renderAll();
+  loadAll();
+})();
+</script>
+</body>
+</html>
