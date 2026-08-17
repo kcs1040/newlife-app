@@ -123,6 +123,19 @@
   .gap input[type=number] { width:112px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--sunk); color:var(--ink); font-family:var(--mono); font-size:13px; text-align:right; }
   .gap input:focus { outline:none; border-color:var(--brass); }
 
+  /* 대출 트랙 — 세 개가 배타적이라는 걸 형태로 보여준다 */
+  .tr { display:flex; align-items:center; gap:10px; padding:12px 16px; border-top:1px solid var(--line-2); }
+  .tr--best { background:var(--sunk); }
+  .tr--off { opacity:.5; }
+  .tr s { width:3px; align-self:stretch; border-radius:2px; text-decoration:none; flex-shrink:0; }
+  .tr__b { flex:1; min-width:0; }
+  .tr__n { font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:7px; }
+  .tr__c { font-size:11px; color:var(--faint); margin-top:2px; }
+  .tr__g { display:flex; gap:14px; flex-shrink:0; text-align:right; }
+  .tr__k { font-size:10px; color:var(--faint); }
+  .tr__v { font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums; margin-top:1px; }
+  @media (max-width:520px){ .tr { flex-wrap:wrap; } .tr__b { flex-basis:100%; } .tr__g { margin-left:13px; } }
+
   /* 지원·절세 원장 — 상태가 금액만큼 중요하므로 칩으로 형태화한다 */
   .chip { font-family:var(--mono); font-size:9.5px; letter-spacing:.05em; padding:2px 6px; border-radius:4px; flex-shrink:0; }
   .chip--ok  { background:rgba(78,158,127,.15);  color:var(--jade); }
@@ -189,7 +202,7 @@
       <div id="reLines"></div>
     </section>
     <section class="panel">
-      <div class="hd"><span class="hd__t">매수 여력</span><span class="hd__n">2027-05 기준</span></div>
+      <div class="hd"><span class="hd__t">매수 여력</span><span class="hd__n">2027-05 기준 · 대출 택일</span></div>
       <div class="sim">
         <div class="sim__row">
           <div><span class="sim__price" id="pV">–</span><span style="color:var(--faint);font-size:15px">억</span></div>
@@ -199,8 +212,12 @@
         <div class="fund" id="fund"></div>
         <div class="keys" id="fundKeys"></div>
         <div class="out" id="out"></div>
-        <div class="verdict" id="verdict"></div>
       </div>
+      <div class="hd" style="border-top:1px solid var(--line-2)">
+        <span class="hd__t">대출 선택지</span><span class="hd__n">1순위 근저당 — 하나만</span>
+      </div>
+      <div id="trackList"></div>
+      <div style="padding:0 16px 16px"><div class="verdict" id="verdict"></div></div>
       <div class="note" id="simNote"></div>
     </section>
     <section class="panel">
@@ -317,14 +334,16 @@
   }
 
   function derive(){
-    var inc=D.income.salary.monthly+D.income.spouse.monthly;
+    // 아내 수입은 실제 총액이 아니라 가계로 들어오는 몫(pooled)만 센다
+    var sp=D.income.spouse, spIn=sp.pooled!=null?sp.pooled:sp.monthly;
+    var inc=D.income.salary.monthly+spIn;
     var exp=D.expenses.reduce(function(s,e){return s+e.monthly;},0);
     var sav=D.savings.reduce(function(s,e){return s+e.monthly;},0);
     var byClass={};
     D.accounts.forEach(function(a){ byClass[a.class]=(byClass[a.class]||0)+acctTotal(a); });
     var totalAssets=D.accounts.reduce(function(s,a){return s+acctTotal(a);},0);
     var totalDebt=D.liabilities.reduce(function(s,l){return s+l.balance;},0);
-    return {inc:inc,exp:exp,sav:sav,bonus:D.income.bonus.annual,
+    return {inc:inc,exp:exp,sav:sav,bonus:D.income.bonus.annual,spGross:sp.monthly,spIn:spIn,
       annualIncome:inc*12+D.income.bonus.annual, byClass:byClass,
       totalAssets:totalAssets,totalDebt:totalDebt,netWorth:totalAssets-totalDebt};
   }
@@ -348,27 +367,53 @@
             total:(jeonse-m.totalDebt)+cash+stock+accrue+m.bonus};
   }
 
-  function simulate(price,m){
-    var A=D.assumptions, eq=equityAt(m);
-    var need=price*(1+A.acquisitionTaxRate/100);
-    var corpLimit=D.creditLines.find(function(c){return c.id==='corp-home';}).limit;
-    var own=Math.min(eq.total,need), rest=Math.max(0,need-own);
-    var corp=Math.min(corpLimit,rest), mortgage=Math.max(0,rest-corp);
-    var corpInt=corp*0.015/12;
-    var imputed=corp*Math.max(0,(A.imputedInterestBase-1.5)/100)*(A.marginalTaxRate/100)/12;
-    var r=A.mortgageRate/100/12, mtgPay=mortgage>0?mortgage*r/(1-Math.pow(1+r,-360)):0;
-    var propTax=price*(A.propertyTaxRate/100)/12;
-    var monthlyCost=corpInt+imputed+mtgPay+propTax;
+  // 세 대출은 모두 1순위 근저당을 요구하므로 쌓이지 않는다. 하나만 고르는 것이다.
+  function trackAt(t,price,need,eq,m){
+    var A=D.assumptions, gap=Math.max(0,need-eq.total);
+    var cap=t.limit!=null?t.limit:price*(t.ltv/100);
+    var loan=Math.min(cap,gap);
+    var short=gap-loan;                       // 대출로도 못 메우는 부족액
+    var pay, imputed=0;
+    if(t.repayment==='interest_only'){
+      pay=loan*(t.rate/100)/12;
+      imputed=loan*Math.max(0,(A.imputedInterestBase-t.rate)/100)*(A.marginalTaxRate/100)/12;
+    } else {
+      var r=t.rate/100/12;
+      pay=loan>0?loan*r/(1-Math.pow(1+r,-360)):0;
+    }
+    var monthlyCost=pay+imputed+price*(A.propertyTaxRate/100)/12;
     var support=1100000;
     var jeonseInt=D.expenses.find(function(e){return e.linkedTo==='loan-jeonse';}).monthly;
     var free=m.inc+support-(m.exp-jeonseInt+A.sitterMonthly)-monthlyCost;
-    var dsr=(corp*0.015+mtgPay*12)/m.annualIncome*100;
-    return {price:price,need:need,own:own,corp:corp,mortgage:mortgage,
-      leftoverCash:Math.max(0,eq.total-need),monthlyCost:monthlyCost,free:free,dsr:dsr,
-      corpInt:corpInt,imputed:imputed,mtgPay:mtgPay,propTax:propTax,eq:eq};
+    var dsr=t.dsrCount?(pay*12)/m.annualIncome*100:0;
+
+    var blocked=null;
+    if(short>0) blocked='자기자본 '+eok1(short)+'억 부족';
+    else if(t.maxPrice&&price>t.maxPrice) blocked='주택가액 '+eok1(t.maxPrice)+'억 초과';
+    else if(t.maxNetWorth&&m.netWorth>t.maxNetWorth) blocked='순자산 기준 초과';
+    else if(dsr>A.dsrLimit) blocked='DSR '+dsr.toFixed(0)+'%';
+
+    return {t:t,loan:loan,short:short,pay:pay,imputed:imputed,
+            monthlyCost:monthlyCost,free:free,dsr:dsr,blocked:blocked};
+  }
+
+  function simulate(price,m){
+    var A=D.assumptions, eq=equityAt(m);
+    var need=price*(1+A.acquisitionTaxRate/100);
+    var own=Math.min(eq.total,need);
+    var tracks=D.loanTracks.map(function(t){return trackAt(t,price,need,eq,m);});
+    var ok=tracks.filter(function(x){return !x.blocked;});
+    // 쓸 수 있는 것 중 월 부담이 가장 가벼운 트랙이 사실상의 기준선이다
+    var best=ok.sort(function(a,b){return a.monthlyCost-b.monthlyCost;})[0]||null;
+    return {price:price,need:need,own:own,gap:Math.max(0,need-eq.total),
+      leftoverCash:Math.max(0,eq.total-need),tracks:tracks,best:best,
+      monthlyCost:best?best.monthlyCost:0,free:best?best.free:0,
+      dsr:best?best.dsr:0,eq:eq};
   }
 
   function verdictOf(s){
+    if(!s.best) return {t:'불가',c:'var(--clay)',bg:'rgba(196,97,76,.13)',
+      d:'이 가격에서 쓸 수 있는 대출이 없습니다. 세 대출 모두 1순위 근저당이라 쌓을 수 없으니, 자기자본을 늘리거나 가격을 낮춰야 합니다.'};
     if(s.free<0) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.'};
     if(s.dsr>D.assumptions.dsrLimit) return {t:'규제 초과',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'DSR 한도를 넘습니다. 대출이 그만큼 안 나올 가능성이 높습니다.'};
     if(s.free<1000000) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',d:'유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.'};
@@ -510,23 +555,49 @@
     $('pV').textContent=eok1(s.price);
     $('pCap').textContent='취득세 포함 '+eok1(s.need)+'억 필요';
     var fund=$('fund'), fk=$('fundKeys'); fund.innerHTML=''; fk.innerHTML='';
-    [['자기자본',s.own,'var(--jade)'],['회사대출 1.5%',s.corp,'var(--brass)'],
-     ['주담대 '+D.assumptions.mortgageRate+'%',s.mortgage,'var(--clay)']].forEach(function(p){
+    [['자기자본',s.own,'var(--jade)'],['대출로 메울 몫',s.gap,'var(--slate)']].forEach(function(p){
       if(p[1]<=0) return;
       var w=p[1]/s.need*100;
       var i=el('i',null,w>16?eok1(p[1])+'억':''); i.style.width=w+'%'; i.style.background=p[2]; fund.appendChild(i);
       var k=el('span','key'); var sw=el('s'); sw.style.background=p[2]; k.appendChild(sw);
       k.appendChild(document.createTextNode(p[0]+' ')); k.appendChild(el('em',null,eok1(p[1])+'억')); fk.appendChild(k);
     });
+    var B=s.best;
     var out=$('out'); out.innerHTML='';
-    [['월 주거비용',man(s.monthlyCost)+'만',null],
-     ['상환 후 월 여유',man(s.free)+'만',s.free<0?'var(--clay)':(s.free<1e6?'var(--brass)':'var(--jade)')],
-     ['DSR',s.dsr.toFixed(0)+'%',s.dsr>D.assumptions.dsrLimit?'var(--clay)':null],
+    [['월 주거비용',B?man(s.monthlyCost)+'만':'—',null],
+     ['상환 후 월 여유',B?man(s.free)+'만':'—',!B?'var(--faint)':(s.free<0?'var(--clay)':(s.free<1e6?'var(--brass)':'var(--jade)'))],
+     ['최선 트랙',B?B.t.label.replace('신생아 특례 ','').replace('회사 ','회사'):'없음',B?null:'var(--clay)'],
      ['매수 후 여유현금',man(s.leftoverCash)+'만',s.leftoverCash<2e7?'var(--brass)':null]
     ].forEach(function(row){
       var d=el('div'); d.appendChild(el('div','out__k',row[0]));
-      var v=el('div','out__v num',row[1]); if(row[2])v.style.color=row[2]; d.appendChild(v); out.appendChild(d);
+      var v=el('div','out__v num',row[1]); if(row[2])v.style.color=row[2];
+      if(row[0]==='최선 트랙') v.style.fontSize='13px';
+      d.appendChild(v); out.appendChild(d);
     });
+
+    var list=$('trackList'); list.innerHTML='';
+    s.tracks.forEach(function(x){
+      var on=!x.blocked, isBest=B&&x.t.id===B.t.id;
+      var r=el('div','tr'+(isBest?' tr--best':'')+(on?'':' tr--off'));
+      var sw=el('s'); sw.style.background=on?(isBest?'var(--brass)':'var(--slate)'):'var(--clay)'; r.appendChild(sw);
+      var bx=el('div','tr__b');
+      var n=el('div','tr__n'); n.appendChild(document.createTextNode(x.t.label));
+      if(isBest) n.appendChild(el('span','chip chip--ok','최선'));
+      else if(!on) n.appendChild(el('span','chip chip--no',x.blocked));
+      bx.appendChild(n);
+      bx.appendChild(el('div','tr__c',x.t.cond+' · 실효 '+x.t.effRate+'%'));
+      r.appendChild(bx);
+      var g=el('div','tr__g');
+      [['대출',eok1(x.loan)+'억'],['월 부담',man(x.monthlyCost)+'만'],
+       ['월 여유',(x.free<0?'−':'')+man(Math.abs(x.free))+'만']].forEach(function(c,i){
+        var d=el('div'); d.appendChild(el('div','tr__k',c[0]));
+        var v=el('div','tr__v',c[1]);
+        if(i===2) v.style.color=x.free<0?'var(--clay)':(x.free<1e6?'var(--brass)':'var(--jade)');
+        d.appendChild(v); g.appendChild(d);
+      });
+      r.appendChild(g); list.appendChild(r);
+    });
+
     var vd=verdictOf(s), box=$('verdict'); box.innerHTML=''; box.style.background=vd.bg;
     var b=el('b',null,vd.t); b.style.background=vd.c; b.style.color='#0B0D10';
     box.appendChild(b); box.appendChild(el('span',null,vd.d));
@@ -534,9 +605,10 @@
       +' + 현금 '+eok1(s.eq.cash)+' + 주식 '+eok1(s.eq.stock)+' + 적립 '+eok1(s.eq.accrue)
       +' + 보너스 '+eok1(s.eq.bonus)+' (억)<br>'
       +'용도가 확정된 금고(산후조리원·시터비용) <b>'+man(s.eq.reserved)+'만원</b>과 연금저축은 제외했다.<br>'
-      +'월 주거비용: 회사대출 이자 '+man(s.corpInt)+' + 간주이자 세금 '+man(s.imputed)
-      +' + 주담대 원리금 '+man(s.mtgPay)+' + 보유세 '+man(s.propTax)+' (만원)<br>'
-      +'월 여유는 <b>시터비 '+man(D.assumptions.sitterMonthly)+'만·부모급여 110만을 반영한 2027-05 기준</b>.';
+      +'<b>회사대출이 1순위 근저당 조건이라 세 대출은 서로 배타적이다.</b> 쌓아서 한도를 늘릴 수 없으므로 '
+      +'<b>매수 상한 = 자기자본 + 대출 하나</b>다.<br>'
+      +'월 여유는 <b>시터비 '+man(D.assumptions.sitterMonthly)+'만·부모급여 110만을 반영한 2027-05 기준</b>이고, '
+      +'아내 수입은 총 '+man(m.spGross)+'만 중 가계 반영분 <b>'+man(m.spIn)+'만</b>만 셌다.';
     return s;
   }
 
@@ -545,7 +617,7 @@
     var annualSave=m.sav*12+m.bonus;
     var rD=acctTotal(D.accounts.find(function(a){return a.id==='jeonse';})), rDebt=m.totalDebt;
     var rInv=s.eq.cash+s.eq.stock;
-    var bHome=s.price,bDebt=s.corp+s.mortgage,bInv=s.leftoverCash;
+    var bHome=s.price,bDebt=s.best?s.best.loan:0,bInv=s.leftoverCash;
     var bSave=Math.max(0,s.free)*12+m.bonus;
     var rent=[],buy=[];
     for(var y=0;y<=Y;y++){
