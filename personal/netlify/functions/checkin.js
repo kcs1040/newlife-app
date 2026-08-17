@@ -1,15 +1,4 @@
-const crypto = require('crypto');
-
-// 공유 암호. 미설정이면 검사하지 않는다 — APP_SECRET을 넣는 순간 켜진다.
-const SECRET = process.env.APP_SECRET;
-function authorized(event) {
-  if (!SECRET) return true;
-  const h = event.headers || {};
-  const a = Buffer.from(String(h['x-app-key'] || h['X-App-Key'] || ''));
-  const b = Buffer.from(SECRET);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
+// 이 사이트는 Netlify 사이트 암호로 이미 보호된다. 함수 인증은 중복이라 두지 않는다.
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO || 'newlife-checkin';
 const TOKEN = process.env.GITHUB_TOKEN;
@@ -59,17 +48,13 @@ exports.handler = async (event) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-App-Key'
+    'Access-Control-Allow-Headers': 'Content-Type'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: cors, body: '' };
 
   if (!OWNER || !TOKEN) {
     return { statusCode: 500, headers: cors, body: JSON.stringify({ error: 'GITHUB_OWNER / GITHUB_TOKEN env var not set' }) };
   }
-  if (!authorized(event)) {
-    return { statusCode: 401, headers: cors, body: JSON.stringify({ error: '암호가 필요합니다' }) };
-  }
-
   try {
     if (event.httpMethod === 'GET') {
       const date = event.queryStringParameters && event.queryStringParameters.date;
