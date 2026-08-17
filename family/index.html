@@ -373,19 +373,22 @@
     var cap=t.limit!=null?t.limit:price*(t.ltv/100);
     var loan=Math.min(cap,gap);
     var short=gap-loan;                       // 대출로도 못 메우는 부족액
-    var pay, imputed=0;
+    var pay, imputed=0, dsrAnnual;
     if(t.repayment==='interest_only'){
       pay=loan*(t.rate/100)/12;
       imputed=loan*Math.max(0,(A.imputedInterestBase-t.rate)/100)*(A.marginalTaxRate/100)/12;
+      // 만기일시라도 DSR은 원금을 만기로 분할해 산입한다 — 실제 월 납입액과 다르다
+      dsrAnnual=loan*(t.rate/100)+loan/t.term;
     } else {
       var r=t.rate/100/12;
-      pay=loan>0?loan*r/(1-Math.pow(1+r,-360)):0;
+      pay=loan>0?loan*r/(1-Math.pow(1+r,-t.term*12)):0;
+      dsrAnnual=pay*12;
     }
     var monthlyCost=pay+imputed+price*(A.propertyTaxRate/100)/12;
     var support=1100000;
     var jeonseInt=D.expenses.find(function(e){return e.linkedTo==='loan-jeonse';}).monthly;
     var free=m.inc+support-(m.exp-jeonseInt+A.sitterMonthly)-monthlyCost;
-    var dsr=t.dsrCount?(pay*12)/m.annualIncome*100:0;
+    var dsr=t.dsrCount?dsrAnnual/m.annualIncome*100:0;
 
     var blocked=null;
     if(short>0) blocked='자기자본 '+eok1(short)+'억 부족';
@@ -585,14 +588,17 @@
       if(isBest) n.appendChild(el('span','chip chip--ok','최선'));
       else if(!on) n.appendChild(el('span','chip chip--no',x.blocked));
       bx.appendChild(n);
-      bx.appendChild(el('div','tr__c',x.t.cond+' · 실효 '+x.t.effRate+'%'));
+      bx.appendChild(el('div','tr__c',x.t.cond+' · 실효 '+x.t.effRate+'% · '
+        +(x.t.repayment==='interest_only'?'만기일시 ':'원리금 ')+x.t.term+'년'));
       r.appendChild(bx);
       var g=el('div','tr__g');
       [['대출',eok1(x.loan)+'억'],['월 부담',man(x.monthlyCost)+'만'],
+       ['DSR',x.dsr.toFixed(0)+'%'],
        ['월 여유',(x.free<0?'−':'')+man(Math.abs(x.free))+'만']].forEach(function(c,i){
         var d=el('div'); d.appendChild(el('div','tr__k',c[0]));
         var v=el('div','tr__v',c[1]);
-        if(i===2) v.style.color=x.free<0?'var(--clay)':(x.free<1e6?'var(--brass)':'var(--jade)');
+        if(i===2&&x.dsr>D.assumptions.dsrLimit) v.style.color='var(--clay)';
+        if(i===3) v.style.color=x.free<0?'var(--clay)':(x.free<1e6?'var(--brass)':'var(--jade)');
         d.appendChild(v); g.appendChild(d);
       });
       r.appendChild(g); list.appendChild(r);
@@ -607,6 +613,8 @@
       +'용도가 확정된 금고(산후조리원·시터비용) <b>'+man(s.eq.reserved)+'만원</b>과 연금저축은 제외했다.<br>'
       +'<b>회사대출이 1순위 근저당 조건이라 세 대출은 서로 배타적이다.</b> 쌓아서 한도를 늘릴 수 없으므로 '
       +'<b>매수 상한 = 자기자본 + 대출 하나</b>다.<br>'
+      +'DSR은 셋 다 산입되며 한도는 '+D.assumptions.dsrLimit+'%다. 만기일시상환도 원금을 만기로 나눠 '
+      +'산입하므로 <b>월 부담과 DSR이 따로 논다</b> — 회사대출이 만기 10년이면 DSR 44%로 걸린다.<br>'
       +'월 여유는 <b>시터비 '+man(D.assumptions.sitterMonthly)+'만·부모급여 110만을 반영한 2027-05 기준</b>이고, '
       +'아내 수입은 총 '+man(m.spGross)+'만 중 가계 반영분 <b>'+man(m.spIn)+'만</b>만 셌다.';
     return s;
