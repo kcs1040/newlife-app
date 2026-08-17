@@ -3,291 +3,546 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>우리집 재정</title>
+<title>자산 현황</title>
 <style>
+  /* 계기판 성격의 화면이라 단일 다크 테마로 고정한다. 모든 색을 명시적으로 칠해
+     호스트 배경과 무관하게 동일하게 보이도록 한다. */
   :root {
-    --bg: #EFECE4; --surface: #F9F7F2; --sunk: #E7E2D6;
-    --ink: #1F1C17; --muted: #6B6456; --faint: #9B927F;
-    --accent: #A8722F; --accent-soft: #E9DCC2;
-    --in: #4C7A5C; --in-soft: #DEE8E0;
-    --out: #B0503E; --out-soft: #F0DED9;
-    --save: #3E6E82; --save-soft: #DAE5EA;
-    --line: #DBD4C6; --r: 8px;
-    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+    --void:#0B0D10; --panel:#14171C; --sunk:#1B1F26; --line:#252A33; --line-2:#1D222A;
+    --ink:#E9ECEF; --dim:#8C949F; --faint:#59616D;
+    --brass:#C9A227; --brass-dim:#6E5A16;
+    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#4A5361;
+    --r:10px;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","Pretendard","Noto Sans KR",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141109; --surface: #1D190F; --sunk: #100D07;
-      --ink: #F2EDE2; --muted: #A69A84; --faint: #786F5D;
-      --accent: #DDA05A; --accent-soft: #3A2C17;
-      --in: #7EB58F; --in-soft: #22322A;
-      --out: #DE8873; --out-soft: #3A241F;
-      --save: #7FAFC4; --save-soft: #1E2E36;
-      --line: #322A1C;
-    }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--void); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; line-height:1.5;
   }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; line-height: 1.5; }
-  .page { max-width: 560px; margin: 0 auto; padding: 24px 16px 80px; }
+  .wrap { max-width:900px; margin:0 auto; padding:22px 16px 72px; }
+  .num { font-family:var(--mono); font-variant-numeric:tabular-nums; }
 
-  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
-  .brand { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-  .saved { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  /* ── 헤더 ── */
+  .top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:16px; }
+  .top__t { font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  .top__d { font-family:var(--mono); font-size:11.5px; color:var(--faint); }
 
-  .status { font-family: var(--mono); font-size: 11.5px; padding: 8px 12px; border-radius: var(--r); margin-bottom: 14px; display: none; }
-  .status.show { display: block; }
-  .status--ok { background: var(--in-soft); color: var(--in); }
-  .status--err { background: var(--out-soft); color: var(--out); }
-  .status--busy { background: var(--accent-soft); color: var(--accent); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); }
+  .panel + .panel, section { margin-top:12px; }
+  .hd { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line-2); }
+  .hd__t { font-size:11.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
+  .hd__n { font-family:var(--mono); font-size:10.5px; color:var(--faint); }
 
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 16px; }
-  h2 { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); margin: 0 0 9px; padding-left: 2px; }
+  /* ── 순자산 히어로 ── */
+  .hero { padding:22px 18px 18px; }
+  .hero__k { font-size:11.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); margin:0 0 6px; }
+  .hero__v { font-family:var(--mono); font-size:46px; font-weight:700; line-height:1; letter-spacing:-.03em; color:var(--brass); font-variant-numeric:tabular-nums; }
+  .hero__u { font-size:20px; color:var(--brass-dim); margin-left:2px; }
+  .hero__s { font-family:var(--mono); font-size:12.5px; color:var(--dim); margin-top:9px; }
+  .hero__s b { color:var(--jade); font-weight:400; }
+  .hero__s i { color:var(--clay); font-style:normal; }
 
-  /* 요약 */
-  .sum { display: grid; grid-template-columns: 1fr 1fr 1fr; }
-  .sum__c { padding: 15px 10px; text-align: center; }
-  .sum__c + .sum__c { border-left: 1px solid var(--line); }
-  .sum__v { font-family: var(--mono); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .sum__l { font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .bar { display: flex; height: 6px; }
-  .bar div { height: 100%; }
+  .stack { display:flex; height:9px; border-radius:3px; overflow:hidden; margin-top:16px; background:var(--sunk); }
+  .stack i { display:block; height:100%; }
+  .keys { display:flex; flex-wrap:wrap; gap:5px 15px; margin-top:11px; }
+  .key { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--dim); }
+  .key s { width:7px; height:7px; border-radius:2px; text-decoration:none; flex-shrink:0; }
+  .key em { font-family:var(--mono); font-style:normal; color:var(--ink); }
 
-  /* 항목 */
-  .row { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); }
-  .row:first-child { border-top: none; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .row__n { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row__w { font-size: 11px; color: var(--faint); flex-shrink: 0; }
-  .row__a { font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
-  .row__x { background: none; border: none; color: var(--faint); font-size: 17px; line-height: 1; padding: 2px 4px; cursor: pointer; flex-shrink: 0; }
-  .row__x:hover { color: var(--out); }
-  .empty { padding: 18px 14px; font-size: 13px; color: var(--faint); text-align: center; }
+  /* ── 지표 스트립 ── */
+  .strip { display:grid; grid-template-columns:repeat(2,1fr); }
+  @media (min-width:620px) { .strip { grid-template-columns:repeat(4,1fr); } }
+  .met { padding:14px 16px; border-top:1px solid var(--line-2); }
+  .met:nth-child(-n+2) { border-top:none; }
+  @media (min-width:620px) { .met { border-top:none; border-left:1px solid var(--line-2); } .met:first-child { border-left:none; } }
+  .met__k { font-size:11px; color:var(--faint); }
+  .met__v { font-family:var(--mono); font-size:21px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums; }
+  .met__s { font-size:10.5px; color:var(--faint); margin-top:1px; }
 
-  /* 입력 */
-  .add { display: grid; grid-template-columns: 1fr 84px auto; gap: 7px; padding: 11px 14px; border-top: 1px solid var(--line); background: var(--sunk); align-items: center; }
-  .add--acct { grid-template-columns: 1fr 84px auto; }
-  input, select {
-    width: 100%; padding: 8px 9px; border: 1px solid var(--line); border-radius: 6px;
-    background: var(--surface); color: var(--ink); font-family: inherit; font-size: 13.5px; min-width: 0;
+  /* ── 자산 목록 ── */
+  .ln { display:flex; align-items:center; gap:11px; padding:10px 16px; border-top:1px solid var(--line-2); }
+  .ln:first-child { border-top:none; }
+  .ln s { width:3px; align-self:stretch; border-radius:2px; text-decoration:none; flex-shrink:0; }
+  .ln__n { flex:1; min-width:0; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ln__t { font-size:10.5px; color:var(--faint); flex-shrink:0; }
+  .ln__v { font-family:var(--mono); font-size:13.5px; flex-shrink:0; font-variant-numeric:tabular-nums; }
+  .ln--tot { background:var(--sunk); }
+  .ln--tot .ln__n, .ln--tot .ln__v { font-weight:700; }
+  .warn { color:var(--brass); }
+
+  /* ── 매수 시뮬레이터 ── */
+  .sim { padding:16px; }
+  .sim__row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:9px; }
+  .sim__price { font-family:var(--mono); font-size:31px; font-weight:700; letter-spacing:-.02em; }
+  .sim__cap { font-size:11px; color:var(--faint); }
+  input[type=range] {
+    -webkit-appearance:none; appearance:none; width:100%; height:26px; background:transparent; margin:0; cursor:pointer;
   }
-  input[type=number] { font-family: var(--mono); text-align: right; }
-  .add select { grid-column: 1 / -1; }
-  .btn {
-    padding: 8px 14px; border-radius: 6px; border: none; background: var(--accent); color: var(--surface);
-    font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  input[type=range]::-webkit-slider-runnable-track { height:4px; border-radius:2px; background:var(--sunk); }
+  input[type=range]::-moz-range-track { height:4px; border-radius:2px; background:var(--sunk); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--brass);
+    border:3px solid var(--panel); margin-top:-8px; box-shadow:0 0 0 1px var(--brass-dim);
   }
-  .btn:disabled { opacity: .5; cursor: default; }
-
-  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .tab {
-    flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
-    color: var(--muted); font-family: inherit; font-size: 13px; cursor: pointer;
+  input[type=range]::-moz-range-thumb {
+    width:20px; height:20px; border-radius:50%; background:var(--brass); border:3px solid var(--panel);
   }
-  .tab.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  input[type=range]:focus-visible { outline:2px solid var(--brass); outline-offset:4px; }
 
-  footer { margin-top: 22px; text-align: center; }
-  footer p { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin: 0; line-height: 1.7; }
+  .fund { display:flex; height:26px; border-radius:5px; overflow:hidden; margin:13px 0 8px; background:var(--sunk); }
+  .fund i { display:flex; align-items:center; justify-content:center; height:100%; font-family:var(--mono); font-size:10.5px; color:#0B0D10; font-weight:700; overflow:hidden; white-space:nowrap; }
+
+  .out { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line-2); border-radius:7px; overflow:hidden; margin-top:13px; }
+  @media (min-width:620px) { .out { grid-template-columns:repeat(4,1fr); } }
+  .out div { background:var(--panel); padding:11px 12px; }
+  .out__k { font-size:10.5px; color:var(--faint); }
+  .out__v { font-family:var(--mono); font-size:16px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+
+  .verdict { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:7px; margin-top:13px; font-size:13px; }
+  .verdict b { font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:4px; flex-shrink:0; }
+
+  /* ── 차트 ── */
+  .chart { padding:14px 10px 8px; }
+  .chart svg { width:100%; height:auto; display:block; overflow:visible; }
+  .glabel { font-family:var(--mono); font-size:9.5px; fill:var(--faint); }
+  .evt { font-family:var(--sans); font-size:9.5px; fill:var(--dim); }
+
+  /* ── 입력 ── */
+  .gap { padding:13px 16px; border-top:1px solid var(--line-2); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .gap label { font-size:12.5px; color:var(--dim); flex:1; min-width:150px; }
+  .gap input[type=number] {
+    width:112px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--sunk);
+    color:var(--ink); font-family:var(--mono); font-size:13px; text-align:right;
+  }
+  .gap input:focus { outline:none; border-color:var(--brass); }
+
+  .note { padding:12px 16px; font-size:12px; color:var(--faint); line-height:1.65; border-top:1px solid var(--line-2); }
+  .note b { color:var(--dim); font-weight:600; }
+
+  footer { margin-top:24px; text-align:center; }
+  footer p { font-family:var(--mono); font-size:10px; color:var(--faint); margin:0; line-height:1.8; }
 </style>
 </head>
 <body>
-<div class="page">
-  <header>
-    <span class="brand">우리집 재정</span>
-    <span class="saved" id="savedAt"></span>
-  </header>
+<div class="wrap">
+  <div class="top">
+    <span class="top__t">우리집 자산</span>
+    <span class="top__d" id="asOf"></span>
+  </div>
 
-  <div class="status" id="status"></div>
-
-  <div class="card">
-    <div class="sum">
-      <div class="sum__c"><div class="sum__v" id="sIn" style="color:var(--in)">–</div><div class="sum__l">월 수입</div></div>
-      <div class="sum__c"><div class="sum__v" id="sOut" style="color:var(--out)">–</div><div class="sum__l">월 지출</div></div>
-      <div class="sum__c"><div class="sum__v" id="sLeft">–</div><div class="sum__l">남는 돈</div></div>
+  <!-- 순자산 -->
+  <div class="panel">
+    <div class="hero">
+      <p class="hero__k">순자산</p>
+      <div><span class="hero__v" id="nwV">–</span><span class="hero__u">억</span></div>
+      <div class="hero__s" id="nwS"></div>
+      <div class="stack" id="stack"></div>
+      <div class="keys" id="keys"></div>
     </div>
-    <div class="bar" id="bar"></div>
+    <div class="strip" id="strip"></div>
   </div>
 
-  <h2>수입 · 지출 · 저축</h2>
-  <div class="tabs">
-    <button class="tab on" data-kind="income">수입</button>
-    <button class="tab" data-kind="expense">지출</button>
-    <button class="tab" data-kind="saving">저축·투자</button>
-  </div>
-  <div class="card">
-    <div id="list"></div>
-    <div class="add">
-      <input id="nName" placeholder="항목 이름" autocomplete="off">
-      <input id="nAmt" type="number" inputmode="numeric" placeholder="만원">
-      <button class="btn" id="addBtn">추가</button>
-      <select id="nWho">
-        <option value="both">공동</option>
-        <option value="me">남편</option>
-        <option value="wife">아내</option>
-      </select>
+  <!-- 자산·부채 -->
+  <section class="panel">
+    <div class="hd"><span class="hd__t">자산 · 부채</span><span class="hd__n">만원</span></div>
+    <div id="lines"></div>
+    <div class="gap">
+      <label for="stockIn">주식 평가액 (본인 + 아내) — <b class="warn">미파악</b></label>
+      <input id="stockIn" type="number" inputmode="numeric" placeholder="만원">
     </div>
-  </div>
+  </section>
 
-  <h2>통장 잔액</h2>
-  <div class="card">
-    <div id="accts"></div>
-    <div class="add add--acct">
-      <input id="aName" placeholder="통장 이름" autocomplete="off">
-      <input id="aAmt" type="number" inputmode="numeric" placeholder="만원">
-      <button class="btn" id="addAcct">추가</button>
+  <!-- 매수 여력 -->
+  <section class="panel">
+    <div class="hd">
+      <span class="hd__t">주택 매수 여력</span>
+      <span class="hd__n" id="simWhen">2027-05 기준</span>
     </div>
-  </div>
+    <div class="sim">
+      <div class="sim__row">
+        <div><span class="sim__price" id="pV">–</span><span style="color:var(--faint);font-size:15px">억</span></div>
+        <span class="sim__cap" id="pCap"></span>
+      </div>
+      <input type="range" id="pSlider" min="60000" max="200000" step="1000" value="100000" aria-label="목표 매수가">
+      <div class="fund" id="fund"></div>
+      <div class="keys" id="fundKeys"></div>
+      <div class="out" id="out"></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+    <div class="note" id="simNote"></div>
+  </section>
+
+  <!-- 투영 -->
+  <section class="panel">
+    <div class="hd"><span class="hd__t">순자산 15년 투영</span><span class="hd__n">전세 유지 vs 매수</span></div>
+    <div class="chart"><svg id="proj" viewBox="0 0 660 260" role="img" aria-label="순자산 투영"></svg></div>
+    <div class="keys" style="padding:0 16px 14px" id="projKeys"></div>
+    <div class="note" id="projNote"></div>
+  </section>
 
   <footer>
-    <p>금액 단위: 만원 · 수정하려면 지우고 다시 추가</p>
-    <p id="build">우리집 재정</p>
+    <p>단위: 만원 · 데이터는 Claude Code 세션에서 갱신 (매월 21일 포함 토요일)</p>
+    <p id="stamp"></p>
   </footer>
 </div>
 
 <script>
 (function () {
   var API = '/.netlify/functions/data';
-  var state = { items: [], accounts: [], updatedAt: null };
-  var tab = 'income';
-  var KIND = {
-    income:  { color: 'var(--in)',   label: '수입' },
-    expense: { color: 'var(--out)',  label: '지출' },
-    saving:  { color: 'var(--save)', label: '저축·투자' }
+
+  var CLS = {
+    realestate: { label: '부동산', color: 'var(--jade)' },
+    equity:     { label: '투자',   color: 'var(--steel)' },
+    cash:       { label: '현금',   color: 'var(--brass)' },
+    pension:    { label: '연금',   color: 'var(--slate)' }
   };
-  var WHO = { both: '공동', me: '남편', wife: '아내' };
+
+  var D = null, stockValue = null;
 
   function $(id) { return document.getElementById(id); }
-  function say(text, kind) { var s = $('status'); s.textContent = text; s.className = 'status show status--' + kind; }
-  function quiet() { $('status').className = 'status'; }
-  function won(n) { return n.toLocaleString('ko-KR'); }
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function n(v) { return (Math.round(v)).toLocaleString('ko-KR'); }
+  function eok(v) { return (v / 10000).toFixed(2); }
+  function eok1(v) { return (v / 10000).toFixed(1); }
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function months(a, b) { return (+b.slice(0,4) - +a.slice(0,4)) * 12 + (+b.slice(5,7) - +a.slice(5,7)); }
 
-  function sum(kind) {
-    return state.items.filter(function (i) { return i.kind === kind; })
-                      .reduce(function (a, i) { return a + (+i.amount || 0); }, 0);
-  }
+  /* ── 파생 계산 ────────────────────────────────────────── */
+  function derive() {
+    var inc = D.income.salary.monthly + D.income.spouse.monthly;
+    var exp = D.expenses.reduce(function (s, e) { return s + e.monthly; }, 0);
+    var sav = D.savings.reduce(function (s, e) { return s + e.monthly; }, 0);
+    var bonus = D.income.bonus.annual;
 
-  function render() {
-    var inc = sum('income'), exp = sum('expense'), sav = sum('saving');
-    var left = inc - exp - sav;
-    $('sIn').textContent = won(inc);
-    $('sOut').textContent = won(exp + sav);
-    $('sLeft').textContent = won(left);
-    $('sLeft').style.color = left < 0 ? 'var(--out)' : 'var(--ink)';
-
-    var bar = $('bar');
-    bar.innerHTML = '';
-    var total = Math.max(inc, exp + sav) || 1;
-    [[exp, 'var(--out)'], [sav, 'var(--save)'], [Math.max(0, left), 'var(--in)']].forEach(function (p) {
-      if (p[0] <= 0) return;
-      var d = document.createElement('div');
-      d.style.width = (p[0] / total * 100) + '%';
-      d.style.background = p[1];
-      bar.appendChild(d);
+    var assets = D.assets.map(function (a) {
+      var v = a.value;
+      if (a.unknown && stockValue != null) {
+        // 입력받은 총 주식 평가액을 월 적립 비율로 배분한다.
+        var tot = D.assets.filter(function (x) { return x.unknown; })
+                          .reduce(function (s, x) { return s + (x.monthlyAdd || 0); }, 0);
+        v = tot ? stockValue * (a.monthlyAdd || 0) / tot : 0;
+      }
+      return Object.assign({}, a, { value: v });
     });
 
-    var list = $('list');
-    list.innerHTML = '';
-    var rows = state.items.filter(function (i) { return i.kind === tab; });
-    if (!rows.length) {
-      list.innerHTML = '<div class="empty">아직 ' + KIND[tab].label + ' 항목이 없습니다</div>';
-    } else {
-      rows.forEach(function (it) {
-        var r = document.createElement('div');
-        r.className = 'row';
-        r.innerHTML =
-          '<span class="dot" style="background:' + KIND[it.kind].color + '"></span>' +
-          '<span class="row__n"></span><span class="row__w"></span>' +
-          '<span class="row__a"></span><button class="row__x" title="삭제">&times;</button>';
-        r.querySelector('.row__n').textContent = it.name;
-        r.querySelector('.row__w').textContent = WHO[it.who] || '';
-        r.querySelector('.row__a').textContent = won(+it.amount || 0);
-        r.querySelector('.row__x').addEventListener('click', function () { removeItem(it.id); });
-        list.appendChild(r);
-      });
-    }
+    var byClass = {};
+    assets.forEach(function (a) { if (a.value) byClass[a.class] = (byClass[a.class] || 0) + a.value; });
+    var totalAssets = assets.reduce(function (s, a) { return s + (a.value || 0); }, 0);
+    var totalDebt = D.liabilities.reduce(function (s, l) { return s + l.balance; }, 0);
 
-    var ac = $('accts');
-    ac.innerHTML = '';
-    if (!state.accounts.length) {
-      ac.innerHTML = '<div class="empty">통장을 추가해 주세요</div>';
-    } else {
-      state.accounts.forEach(function (a) {
-        var r = document.createElement('div');
-        r.className = 'row';
-        r.innerHTML = '<span class="row__n"></span><span class="row__a"></span><button class="row__x" title="삭제">&times;</button>';
-        r.querySelector('.row__n').textContent = a.name;
-        r.querySelector('.row__a').textContent = won(+a.balance || 0);
-        r.querySelector('.row__x').addEventListener('click', function () { removeAcct(a.id); });
-        ac.appendChild(r);
-      });
-      var tot = state.accounts.reduce(function (s, a) { return s + (+a.balance || 0); }, 0);
-      var t = document.createElement('div');
-      t.className = 'row';
-      t.style.background = 'var(--sunk)';
-      t.innerHTML = '<span class="row__n" style="font-weight:600">합계</span><span class="row__a" style="font-weight:700"></span>';
-      t.querySelector('.row__a').textContent = won(tot);
-      ac.appendChild(t);
-    }
-
-    $('savedAt').textContent = state.updatedAt ? '저장 ' + state.updatedAt.slice(0, 10) : '';
+    return {
+      inc: inc, exp: exp, sav: sav, bonus: bonus,
+      leftover: inc - exp - sav,
+      annualIncome: inc * 12 + bonus,
+      assets: assets, byClass: byClass,
+      totalAssets: totalAssets, totalDebt: totalDebt,
+      netWorth: totalAssets - totalDebt,
+      hasUnknown: assets.some(function (a) { return a.unknown && a.value == null; })
+    };
   }
 
-  function save(msg) {
-    say('저장 중...', 'busy');
-    return fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'replace', payload: { items: state.items, accounts: state.accounts } })
-    })
-      .then(function (r) { if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || '저장 실패'); }); return r.json(); })
-      .then(function (d) { state = d; render(); say(msg || '저장됨', 'ok'); setTimeout(quiet, 1200); })
-      .catch(function (e) { say(e.message, 'err'); });
+  /* 매수 시점(2027-05)의 가용 자기자본 */
+  function equityAt(m) {
+    var jeonse = m.assets.find(function (a) { return a.id === 'jeonse'; }).value;
+    var debt = m.totalDebt;
+    var cash = m.assets.filter(function (a) { return a.class === 'cash' && a.id !== 'cash-postpartum'; })
+                       .reduce(function (s, a) { return s + a.value; }, 0);
+    var stock = m.assets.filter(function (a) { return a.class === 'equity'; })
+                        .reduce(function (s, a) { return s + (a.value || 0); }, 0);
+    var mo = months(D.asOf, '2027-05');
+    var accrue = m.sav * mo;                 // 그때까지 추가 적립
+    var bonusOnce = m.bonus;                 // 2026말~2027초 보너스 1회
+    return {
+      jeonseNet: jeonse - debt, cash: cash, stock: stock,
+      accrue: accrue, bonus: bonusOnce,
+      total: (jeonse - debt) + cash + stock + accrue + bonusOnce
+    };
   }
 
-  function addItem() {
-    var name = $('nName').value.trim();
-    var amt = parseFloat($('nAmt').value);
-    if (!name || !(amt >= 0)) { say('이름과 금액을 입력해 주세요', 'err'); return; }
-    state.items.push({ id: uid(), kind: tab, name: name, amount: amt, who: $('nWho').value });
-    $('nName').value = ''; $('nAmt').value = '';
-    render(); save();
-  }
-  function removeItem(id) {
-    state.items = state.items.filter(function (i) { return i.id !== id; });
-    render(); save('삭제됨');
-  }
-  function addAcct() {
-    var name = $('aName').value.trim();
-    var amt = parseFloat($('aAmt').value);
-    if (!name || !(amt >= 0)) { say('통장 이름과 잔액을 입력해 주세요', 'err'); return; }
-    state.accounts.push({ id: uid(), name: name, balance: amt });
-    $('aName').value = ''; $('aAmt').value = '';
-    render(); save();
-  }
-  function removeAcct(id) {
-    state.accounts = state.accounts.filter(function (a) { return a.id !== id; });
-    render(); save('삭제됨');
+  /* 특정 매수가에 대한 자금 구성과 부담 */
+  function simulate(price, m) {
+    var A = D.assumptions;
+    var eq = equityAt(m);
+    var need = price * (1 + A.acquisitionTaxRate / 100);
+    var corpLimit = D.creditLines.find(function (c) { return c.id === 'corp-home'; }).limit;
+
+    var ownUsed = Math.min(eq.total, need);
+    var rest = Math.max(0, need - ownUsed);
+    var corp = Math.min(corpLimit, rest);
+    var mortgage = Math.max(0, rest - corp);
+    var leftoverCash = Math.max(0, eq.total - need);
+
+    // 월 상환: 회사대출은 이자만, 주담대는 30년 원리금균등
+    var corpInt = corp * (A.mortgageRate ? A.rate : 0);
+    corpInt = corp * 0.015 / 12;
+    var imputed = corp * Math.max(0, (A.imputedInterestBase - 1.5) / 100) * (A.marginalTaxRate / 100) / 12;
+    var r = A.mortgageRate / 100 / 12, nper = 360;
+    var mtgPay = mortgage > 0 ? mortgage * r / (1 - Math.pow(1 + r, -nper)) : 0;
+    var propTax = price * (A.propertyTaxRate / 100) / 12;
+    var monthlyCost = corpInt + imputed + mtgPay + propTax;
+
+    // 매수 시점의 생활 현금흐름 (시터비·지원금 반영, 기존 전세이자는 사라짐)
+    var sitter = 160, support = 100 + 10;
+    var jeonseInt = D.expenses.find(function (e) { return e.linkedTo === 'loan-jeonse'; }).monthly;
+    var baseOut = m.exp - jeonseInt + sitter;
+    var free = m.inc + support - baseOut - monthlyCost;
+
+    var dsrAnnual = (corp * 0.015 + mtgPay * 12) ;
+    var dsr = dsrAnnual / m.annualIncome * 100;
+
+    return {
+      price: price, need: need, own: ownUsed, corp: corp, mortgage: mortgage,
+      leftoverCash: leftoverCash, monthlyCost: monthlyCost, free: free, dsr: dsr,
+      corpInt: corpInt, imputed: imputed, mtgPay: mtgPay, propTax: propTax,
+      feasible: eq.total + corpLimit + mortgage >= need, eq: eq
+    };
   }
 
-  document.querySelectorAll('.tab').forEach(function (b) {
-    b.addEventListener('click', function () {
-      document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
-      b.classList.add('on');
-      tab = b.getAttribute('data-kind');
-      render();
+  function verdictOf(s) {
+    if (s.free < 0)   return { t: '무리',  c: 'var(--clay)',  bg: 'rgba(196,97,76,.13)',  d: '월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.' };
+    if (s.dsr > D.assumptions.dsrLimit) return { t: '규제 초과', c: 'var(--clay)', bg: 'rgba(196,97,76,.13)', d: 'DSR 한도를 넘습니다. 대출이 그만큼 안 나올 가능성이 높습니다.' };
+    if (s.free < 100) return { t: '빠듯',  c: 'var(--brass)', bg: 'rgba(201,162,39,.11)', d: '유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.' };
+    if (s.free < 220) return { t: '적정',  c: 'var(--steel)', bg: 'rgba(91,140,184,.12)', d: '감당 가능하고 저축도 이어집니다. 예비비를 함께 확인하세요.' };
+    return              { t: '여유',  c: 'var(--jade)',  bg: 'rgba(78,158,127,.12)', d: '부담이 크지 않습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.' };
+  }
+
+  /* ── 렌더 ────────────────────────────────────────────── */
+  function renderTop(m) {
+    $('asOf').textContent = D.asOf + ' 기준';
+    $('nwV').textContent = eok(m.netWorth);
+    var s = $('nwS');
+    s.innerHTML = '자산 <b>' + eok(m.totalAssets) + '억</b>  −  부채 <i>' + eok(m.totalDebt) + '억</i>'
+      + (m.hasUnknown ? '  <span style="color:var(--brass)">· 주식 미반영</span>' : '');
+
+    var stack = $('stack'), keys = $('keys');
+    stack.innerHTML = ''; keys.innerHTML = '';
+    Object.keys(CLS).forEach(function (k) {
+      var v = m.byClass[k] || 0;
+      if (!v) return;
+      var bar = el('i'); bar.style.width = (v / m.totalAssets * 100) + '%'; bar.style.background = CLS[k].color;
+      stack.appendChild(bar);
+      var key = el('span', 'key');
+      var sw = el('s'); sw.style.background = CLS[k].color;
+      key.appendChild(sw);
+      key.appendChild(document.createTextNode(CLS[k].label + ' '));
+      key.appendChild(el('em', null, eok(v) + '억'));
+      keys.appendChild(key);
     });
+
+    var strip = $('strip');
+    strip.innerHTML = '';
+    [
+      ['월 순유입', n(m.inc - m.exp) + '만', '수입 ' + n(m.inc) + ' − 지출 ' + n(m.exp)],
+      ['저축률', Math.round(m.sav / m.inc * 100) + '%', '월 ' + n(m.sav) + '만 적립'],
+      ['연 소득', eok1(m.annualIncome) + '억', '보너스 ' + n(m.bonus) + ' 포함'],
+      ['부채비율', Math.round(m.totalDebt / m.totalAssets * 100) + '%', '부채 ' + eok(m.totalDebt) + '억']
+    ].forEach(function (row) {
+      var d = el('div', 'met');
+      d.appendChild(el('div', 'met__k', row[0]));
+      d.appendChild(el('div', 'met__v num', row[1]));
+      d.appendChild(el('div', 'met__s', row[2]));
+      strip.appendChild(d);
+    });
+  }
+
+  function renderLines(m) {
+    var box = $('lines');
+    box.innerHTML = '';
+    m.assets.forEach(function (a) {
+      var r = el('div', 'ln');
+      var bar = el('s'); bar.style.background = CLS[a.class].color; r.appendChild(bar);
+      r.appendChild(el('span', 'ln__n', a.label));
+      var tag = a.liquidity === 'locked' ? '묶임' : (a.unknown && a.value == null ? '미파악' : CLS[a.class].label);
+      var t = el('span', 'ln__t', tag);
+      if (a.unknown && a.value == null) t.className = 'ln__t warn';
+      r.appendChild(t);
+      r.appendChild(el('span', 'ln__v num', a.value == null ? '—' : n(a.value)));
+      box.appendChild(r);
+    });
+    D.liabilities.forEach(function (l) {
+      var r = el('div', 'ln');
+      var bar = el('s'); bar.style.background = 'var(--clay)'; r.appendChild(bar);
+      r.appendChild(el('span', 'ln__n', l.label));
+      r.appendChild(el('span', 'ln__t', l.rate + '%'));
+      var v = el('span', 'ln__v num', '−' + n(l.balance)); v.style.color = 'var(--clay)';
+      r.appendChild(v);
+      box.appendChild(r);
+    });
+    var tot = el('div', 'ln ln--tot');
+    tot.appendChild(el('s'));
+    tot.appendChild(el('span', 'ln__n', '순자산'));
+    tot.appendChild(el('span', 'ln__t', ''));
+    var tv = el('span', 'ln__v num', n(m.netWorth)); tv.style.color = 'var(--brass)';
+    tot.appendChild(tv);
+    box.appendChild(tot);
+  }
+
+  function renderSim(m) {
+    var price = +$('pSlider').value;
+    var s = simulate(price, m);
+    $('pV').textContent = eok1(price);
+    $('pCap').textContent = '취득세 포함 ' + eok1(s.need) + '억 필요';
+
+    var fund = $('fund'), fk = $('fundKeys');
+    fund.innerHTML = ''; fk.innerHTML = '';
+    [['자기자본', s.own, 'var(--jade)'], ['회사대출 1.5%', s.corp, 'var(--brass)'], ['주담대 ' + D.assumptions.mortgageRate + '%', s.mortgage, 'var(--clay)']]
+      .forEach(function (p) {
+        if (p[1] <= 0) return;
+        var w = p[1] / s.need * 100;
+        var i = el('i', null, w > 16 ? eok1(p[1]) + '억' : '');
+        i.style.width = w + '%'; i.style.background = p[2];
+        fund.appendChild(i);
+        var k = el('span', 'key');
+        var sw = el('s'); sw.style.background = p[2]; k.appendChild(sw);
+        k.appendChild(document.createTextNode(p[0] + ' '));
+        k.appendChild(el('em', null, eok1(p[1]) + '억'));
+        fk.appendChild(k);
+      });
+
+    var out = $('out');
+    out.innerHTML = '';
+    [
+      ['월 주거비용', n(s.monthlyCost) + '만', null],
+      ['상환 후 월 여유', n(s.free) + '만', s.free < 0 ? 'var(--clay)' : (s.free < 100 ? 'var(--brass)' : 'var(--jade)')],
+      ['DSR', s.dsr.toFixed(0) + '%', s.dsr > D.assumptions.dsrLimit ? 'var(--clay)' : null],
+      ['매수 후 여유현금', n(s.leftoverCash) + '만', s.leftoverCash < 2000 ? 'var(--brass)' : null]
+    ].forEach(function (row) {
+      var d = el('div');
+      d.appendChild(el('div', 'out__k', row[0]));
+      var v = el('div', 'out__v num', row[1]);
+      if (row[2]) v.style.color = row[2];
+      d.appendChild(v);
+      out.appendChild(d);
+    });
+
+    var vd = verdictOf(s), box = $('verdict');
+    box.innerHTML = '';
+    box.style.background = vd.bg;
+    var b = el('b', null, vd.t); b.style.background = vd.c; b.style.color = '#0B0D10';
+    box.appendChild(b);
+    box.appendChild(el('span', null, vd.d));
+
+    $('simNote').innerHTML =
+      '<b>가용 자기자본 ' + eok1(s.eq.total) + '억</b> = 순전세 ' + eok1(s.eq.jeonseNet) + ' + 현금 ' + eok1(s.eq.cash)
+      + ' + 주식 ' + eok1(s.eq.stock) + ' + 적립 ' + eok1(s.eq.accrue) + ' + 보너스 ' + eok1(s.eq.bonus) + ' (억)<br>'
+      + '월 주거비용 내역: 회사대출 이자 ' + n(s.corpInt) + ' + 간주이자 세금 ' + n(s.imputed)
+      + ' + 주담대 원리금 ' + n(s.mtgPay) + ' + 보유세 ' + n(s.propTax) + ' (만원)<br>'
+      + '월 여유는 <b>시터비 160만·부모급여 110만을 반영한 2027년 5월 기준</b>입니다. 연금저축은 매수 자금에서 제외했습니다.';
+
+    return s;
+  }
+
+  /* 15년 순자산 투영 — 전세 유지 vs 매수 */
+  function project(m, s) {
+    var A = D.assumptions, YEARS = 15;
+    var invR = A.investReturn / 100, homeR = A.homeAppreciation / 100;
+    var annualSave = m.sav * 12 + m.bonus;
+
+    var rent = [], buy = [];
+    // 전세 유지: 보증금 유지(2년마다 인상분은 대출로), 나머지는 투자로 축적
+    var rDeposit = m.assets.find(function (a) { return a.id === 'jeonse'; }).value;
+    var rDebt = m.totalDebt, rInvest = s.eq.cash + s.eq.stock;
+    // 매수: 집값 성장, 대출 상환은 원리금에서 원금분만 단순 반영
+    var bHome = s.price, bDebt = s.corp + s.mortgage, bInvest = s.leftoverCash;
+    var buyAnnualSave = Math.max(0, s.free) * 12 + m.bonus;
+
+    for (var y = 0; y <= YEARS; y++) {
+      rent.push(rDeposit - rDebt + rInvest);
+      buy.push(bHome - bDebt + bInvest);
+      if (y === YEARS) break;
+      // 전세
+      rInvest = rInvest * (1 + invR) + annualSave;
+      if (y % 2 === 1) { var hike = rDeposit * A.jeonseHikeRate / 100; rDeposit += hike; rDebt += hike; }
+      // 매수
+      bHome *= (1 + homeR);
+      var principal = Math.min(bDebt, Math.max(0, buyAnnualSave * 0.45));
+      bDebt -= principal;
+      bInvest = bInvest * (1 + invR) + Math.max(0, buyAnnualSave - principal);
+    }
+    return { rent: rent, buy: buy, years: YEARS };
+  }
+
+  function renderChart(m, s) {
+    var p = project(m, s), svg = $('proj');
+    var W = 660, H = 260, L = 46, R = 12, T = 16, B = 32;
+    var all = p.rent.concat(p.buy);
+    var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+    lo = Math.min(0, lo); hi = hi * 1.06;
+    var x = function (i) { return L + i / p.years * (W - L - R); };
+    var y = function (v) { return T + (1 - (v - lo) / (hi - lo)) * (H - T - B); };
+    var NS = 'http://www.w3.org/2000/svg';
+    function mk(t, a) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); return e; }
+
+    svg.innerHTML = '';
+    var step = Math.pow(10, String(Math.round(hi / 4)).length - 1) * (hi / 4 > 5 * Math.pow(10, String(Math.round(hi / 4)).length - 1) ? 5 : 2);
+    for (var g = 0; g <= hi; g += step) {
+      svg.appendChild(mk('line', { x1: L, y1: y(g), x2: W - R, y2: y(g), stroke: 'var(--line-2)' }));
+      var t = mk('text', { x: L - 7, y: y(g) + 3.5, 'text-anchor': 'end', class: 'glabel' });
+      t.textContent = (g / 10000).toFixed(0) + '억'; svg.appendChild(t);
+    }
+    [0, 5, 10, 15].forEach(function (i) {
+      var t = mk('text', { x: x(i), y: H - 12, 'text-anchor': 'middle', class: 'glabel' });
+      t.textContent = (2026 + i) + (i ? '' : '');
+      svg.appendChild(t);
+    });
+
+    function line(arr, color, dash) {
+      var d = arr.map(function (v, i) { return (i ? 'L' : 'M') + x(i) + ' ' + y(v); }).join(' ');
+      svg.appendChild(mk('path', { d: d, fill: 'none', stroke: color, 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'stroke-dasharray': dash || '' }));
+      svg.appendChild(mk('circle', { cx: x(arr.length - 1), cy: y(arr[arr.length - 1]), r: 3.5, fill: color }));
+    }
+    line(p.rent, 'var(--steel)', '5 4');
+    line(p.buy, 'var(--brass)');
+
+    var keys = $('projKeys');
+    keys.innerHTML = '';
+    [['전세 유지', 'var(--steel)', p.rent[p.years]], ['매수 ' + eok1(s.price) + '억', 'var(--brass)', p.buy[p.years]]]
+      .forEach(function (row) {
+        var k = el('span', 'key');
+        var sw = el('s'); sw.style.background = row[1]; k.appendChild(sw);
+        k.appendChild(document.createTextNode(row[0] + ' → 15년 후 '));
+        k.appendChild(el('em', null, eok1(row[2]) + '억'));
+        keys.appendChild(k);
+      });
+
+    var diff = p.buy[p.years] - p.rent[p.years];
+    $('projNote').innerHTML =
+      '집값 연 <b>' + D.assumptions.homeAppreciation + '%</b> · 투자수익 연 <b>' + D.assumptions.investReturn + '%</b> · 전세 2년마다 <b>'
+      + D.assumptions.jeonseHikeRate + '%</b> 인상 가정. 이 가정에서 15년 후 격차는 <b>'
+      + (diff >= 0 ? '매수가 ' + eok1(Math.abs(diff)) + '억 유리' : '전세가 ' + eok1(Math.abs(diff)) + '억 유리')
+      + '</b>합니다. 집값 상승률이 결과를 지배하므로, 이 숫자는 예측이 아니라 <b>가정의 결과</b>로 읽어야 합니다.';
+  }
+
+  function renderAll() {
+    var m = derive();
+    renderTop(m);
+    renderLines(m);
+    var s = renderSim(m);
+    renderChart(m, s);
+    $('stamp').textContent = D.updatedAt ? '갱신 ' + D.updatedAt.slice(0, 10) : '';
+  }
+
+  $('pSlider').addEventListener('input', function () {
+    var m = derive();
+    var s = renderSim(m);
+    renderChart(m, s);
   });
-  $('addBtn').addEventListener('click', addItem);
-  $('addAcct').addEventListener('click', addAcct);
-  $('nAmt').addEventListener('keydown', function (e) { if (e.key === 'Enter') addItem(); });
-  $('aAmt').addEventListener('keydown', function (e) { if (e.key === 'Enter') addAcct(); });
+  $('stockIn').addEventListener('input', function () {
+    var v = parseFloat(this.value);
+    stockValue = isNaN(v) ? null : v;
+    renderAll();
+  });
 
-  say('불러오는 중...', 'busy');
   fetch(API)
     .then(function (r) { if (!r.ok) throw new Error('불러오기 실패 (' + r.status + ')'); return r.json(); })
-    .then(function (d) { state = d; quiet(); render(); })
-    .catch(function (e) { say(e.message, 'err'); render(); });
+    .then(function (d) { D = d; renderAll(); })
+    .catch(function (e) {
+      document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+        '<div style="padding:12px 14px;border-radius:8px;background:rgba(196,97,76,.13);color:var(--clay);font-family:var(--mono);font-size:12px;margin-bottom:12px">'
+        + e.message + '</div>');
+    });
 })();
 </script>
 </body>
