@@ -11,7 +11,7 @@
     --void:#0B0D10; --panel:#14171C; --sunk:#1B1F26; --line:#252A33; --line-2:#1D222A;
     --ink:#E9ECEF; --dim:#8C949F; --faint:#59616D;
     --brass:#C9A227; --brass-dim:#6E5A16;
-    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#5A6473; --teal:#3F8E96;
+    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#5A6473; --teal:#3F8E96; --plum:#8E6FA3;
     --r:10px;
     --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","Pretendard","Noto Sans KR",sans-serif;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
@@ -194,6 +194,23 @@
     </section>
   </div>
 
+  <!-- 현금흐름 -->
+  <div class="pane" data-pane="cashflow">
+    <section class="panel"><div class="view" id="vCashflow"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">월 흐름 계획</span><span class="hd__n">수입 100% 기준</span></div>
+      <div style="padding:16px">
+        <div class="fund" id="cfFlow" style="height:30px;margin:0 0 10px"></div>
+        <div class="keys" id="cfKeys"></div>
+      </div>
+      <div id="cfLines"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">월별 실적</span><span class="hd__n" id="cfCount"></span></div>
+      <div id="cfActual"></div>
+    </section>
+  </div>
+
   <!-- 부동산 -->
   <div class="pane" data-pane="realestate">
     <section class="panel"><div class="view" id="vRealestate"></div></section>
@@ -318,6 +335,7 @@
   };
   var TABS = [
     {id:'overview',label:'개요',color:'var(--ink)'},
+    {id:'cashflow',label:'현금흐름',color:'var(--plum)',advisory:true},
     {id:'realestate',label:'부동산',color:CLS.realestate.color},
     {id:'equity',label:'투자',color:CLS.equity.color},
     {id:'cash',label:'현금',color:CLS.cash.color},
@@ -426,13 +444,13 @@
       dsr:best?best.dsr:0,eq:eq};
   }
 
-  // 적립을 유지할 수 있는 최대 매수가. 상한과 적정선은 다르다.
-  function keepPrice(m,credit){
+  // 적립을 keep 이상 유지할 수 있는 최대 매수가. 상한과 적정선은 다르다.
+  function keepPrice(m,credit,keep){
     var eq=equityAt(m), lo=3e8, hi=2.5e9;
-    for(var k=0;k<40;k++){
+    for(var k=0;k<44;k++){
       var mid=(lo+hi)/2, need=mid*(1+D.assumptions.acquisitionTaxRate/100);
       var ok=D.loanTracks.map(function(t){return trackAt(t,mid,need,eq,m,credit);})
-                         .filter(function(x){return !x.blocked && x.free>=m.sav;});
+                         .filter(function(x){return !x.blocked && x.free>=keep;});
       if(ok.length) lo=mid; else hi=mid;
     }
     return lo;
@@ -444,10 +462,10 @@
       d:'이 가격에서 쓸 수 있는 조합이 없습니다. 담보대출은 1순위 근저당이라 하나뿐이니, 신용대출을 얹거나 가격을 낮춰야 합니다.'};
     if(s.free<0) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.'};
     if(s.dsr>D.assumptions.dsrLimit) return {t:'규제 초과',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'DSR 한도를 넘습니다. 대출이 그만큼 안 나옵니다.'};
-    if(s.free<m.sav*0.5) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',
-      d:'적립 '+man(m.sav)+'만원의 절반도 못 넣습니다. 집을 사는 대신 자산 축적을 멈추는 선택입니다.'};
+    if(s.free<D.assumptions.savingsFloor) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',
+      d:'적립 하한 '+man(D.assumptions.savingsFloor)+'만원조차 못 지킵니다. 집을 사는 대신 자산 축적을 멈추는 선택입니다.'};
     if(s.free<m.sav) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',
-      d:'적립을 월 '+man(m.sav-s.free)+'만원 줄여야 유지됩니다. 시터를 늘리거나 보너스가 흔들리면 바로 적자입니다.'};
+      d:'적립을 월 '+man(m.sav-s.free)+'만원 줄여야 유지됩니다 (하한 '+man(D.assumptions.savingsFloor)+'만 이내). 시터를 늘리거나 보너스가 흔들리면 바로 적자입니다.'};
     if(s.free<m.sav*1.4) return {t:'적정',c:'var(--steel)',bg:'rgba(91,140,184,.12)',
       d:'적립 '+man(m.sav)+'만원을 유지하면서 감당됩니다. 예비비를 함께 확인하세요.'};
     return {t:'여유',c:'var(--jade)',bg:'rgba(78,158,127,.12)',d:'적립을 유지하고도 여유가 남습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.'};
@@ -651,8 +669,10 @@
       +D.assumptions.creditLoanTerm+'년에 '+D.assumptions.creditLoanRate+'%라 현금흐름을 가장 세게 친다.<br>'
       +'DSR은 셋 다 산입되며 한도는 '+D.assumptions.dsrLimit+'%다. 만기일시상환도 원금을 만기로 나눠 '
       +'산입하므로 <b>월 부담과 DSR이 따로 논다</b> — 회사대출이 만기 10년이면 DSR 44%로 걸린다.<br>'
-      +'<b>적립 '+man(m.sav)+'만원을 유지하며 살 수 있는 상한은 '+eok1(keepPrice(m,s.credit))+'억</b>이다. '
-      +'그 위로는 집을 사는 대신 저축을 멈추는 것이고, 화면의 "월 여유"는 적립을 빼기 전 숫자다.<br>'
+      +'<b>적립을 온전히 유지하는 상한은 '+eok1(keepPrice(m,s.credit,m.sav))+'억</b>, '
+      +'<b>적립을 하한 '+man(D.assumptions.savingsFloor)+'만원까지 줄이면 '
+      +eok1(keepPrice(m,s.credit,D.assumptions.savingsFloor))+'억</b>이다. '
+      +'그 사이 구간은 집값을 저축으로 사는 것이고, 화면의 "월 여유"는 적립을 빼기 전 숫자다.<br>'
       +'월 여유는 <b>시터비 '+man(D.assumptions.sitterMonthly)+'만·부모급여 110만을 반영한 2027-05 기준</b>이고, '
       +'아내 수입은 총 '+man(m.spGross)+'만 중 가계 반영분 <b>'+man(m.spIn)+'만</b>만 셌다.';
     return s;
@@ -801,11 +821,85 @@
     });
   }
 
+  // 계획 기준선은 income/expenses/savings에서 파생시킨다 — 손으로 적어두면 갈라진다
+  function planOf(m){
+    var fixed=D.expenses.filter(function(e){return e.kind==='fixed';})
+                        .reduce(function(s,e){return s+e.monthly;},0);
+    return {income:m.inc,fixed:fixed,variable:m.exp-fixed,saved:m.sav,
+            left:m.inc-m.exp-m.sav};
+  }
+
+  function renderCashflow(m){
+    var P=planOf(m), CF=D.cashflow||{months:[]};
+    var flow=$('cfFlow'), fk=$('cfKeys'); flow.innerHTML=''; fk.innerHTML='';
+    [['고정지출',P.fixed,'var(--slate)'],['변동지출',P.variable,'var(--clay)'],
+     ['적립',P.saved,'var(--jade)'],['잉여',P.left,'var(--brass)']].forEach(function(p){
+      if(p[1]<=0) return;
+      var w=p[1]/P.income*100;
+      var i=el('i',null,w>13?man(p[1])+'만':''); i.style.width=w+'%'; i.style.background=p[2]; flow.appendChild(i);
+      var k=el('span','key'); var sw=el('s'); sw.style.background=p[2]; k.appendChild(sw);
+      k.appendChild(document.createTextNode(p[0]+' '));
+      k.appendChild(el('em',null,man(p[1])+'만 ('+w.toFixed(0)+'%)')); fk.appendChild(k);
+    });
+
+    var box=$('cfLines'); box.innerHTML='';
+    function group(title,rows,color){
+      var h=el('div','ln ln--tot');
+      var s=el('s'); s.style.background=color; h.appendChild(s);
+      h.appendChild(el('span','ln__n',title)); h.appendChild(el('span','ln__t',''));
+      h.appendChild(el('span','ln__v num',man(rows.reduce(function(a,r){return a+r[1];},0))));
+      box.appendChild(h);
+      rows.forEach(function(r){
+        var x=el('div','ln ln--sub'); x.appendChild(el('s'));
+        x.appendChild(el('span','ln__n',r[0]));
+        if(r[2]) x.appendChild(el('span','ln__t',r[2]));
+        x.appendChild(el('span','ln__v num',man(r[1]))); box.appendChild(x);
+      });
+    }
+    var sp=D.income.spouse;
+    group('수입',[['본인 급여',D.income.salary.monthly],
+      ['아내 (총 '+man(sp.monthly)+'만 중 가계 반영분)',m.spIn]],'var(--brass)');
+    group('고정지출',D.expenses.filter(function(e){return e.kind==='fixed';})
+      .map(function(e){return [e.label,e.monthly];}),'var(--slate)');
+    group('변동지출',D.expenses.filter(function(e){return e.kind!=='fixed';})
+      .map(function(e){return [e.label,e.monthly,'조절 가능'];}),'var(--clay)');
+    group('적립',D.savings.map(function(e){return [e.label,e.monthly];}),'var(--jade)');
+    box.appendChild(totalRow('잉여',P.left,'var(--brass)'));
+
+    var act=$('cfActual'); act.innerHTML='';
+    $('cfCount').textContent=CF.months.length?CF.months.length+'개월 기록':'기록 없음';
+    if(!CF.months.length){
+      var e0=el('div','empty');
+      e0.innerHTML='첫 실적 입력은 <b style="color:var(--brass)">'+CF.first
+        +'(토)</b><br><span style="color:var(--faint)">그날 지난 한 달의 수입·지출 실적을 말하면 여기에 쌓인다.</span>';
+      act.appendChild(e0);
+      act.appendChild(el('div','note','몇 달치가 모이면 계획과 실제의 차이가 어디서 반복되는지 보인다. '
+        +'가장 먼저 볼 줄은 변동지출 '+man(P.variable)+'만원 — 통제 가능한 유일한 덩어리다.'));
+      return;
+    }
+    CF.months.forEach(function(x){
+      var inc=Object.keys(x.income||{}).reduce(function(s,k){return s+x.income[k];},0);
+      var exp=Object.keys(x.expenses||{}).reduce(function(s,k){return s+x.expenses[k];},0);
+      var sav=Object.keys(x.savings||{}).reduce(function(s,k){return s+x.savings[k];},0);
+      var left=inc-exp-sav, dv=left-P.left;
+      var r=el('div','ln');
+      var s=el('s'); s.style.background=dv>=0?'var(--jade)':'var(--clay)'; r.appendChild(s);
+      r.appendChild(el('span','ln__n',x.m));
+      r.appendChild(el('span','ln__i','수입 '+man(inc)+' · 지출 '+man(exp)+' · 적립 '+man(sav)));
+      var d=el('span','ret',(dv>=0?'+':'−')+man(Math.abs(dv)));
+      d.style.color=dv>=0?'var(--jade)':'var(--clay)'; r.appendChild(d);
+      r.appendChild(el('span','ln__v num',man(left)));
+      act.appendChild(r);
+    });
+    act.appendChild(el('div','note','오른쪽 숫자는 그달의 잉여, 색 있는 숫자는 계획('
+      +man(P.left)+'만) 대비 편차다.'));
+  }
+
   function renderAll(){
     var m=derive();
     renderTop(m); renderTabs(m); renderLists(m);
-    renderBenefits(); renderStrategy(m);
-    ['realestate','equity','cash','pension','support','strategy'].forEach(function(k){
+    renderBenefits(); renderStrategy(m); renderCashflow(m);
+    ['realestate','equity','cash','pension','support','strategy','cashflow'].forEach(function(k){
       renderView(k,'v'+k.charAt(0).toUpperCase()+k.slice(1));
     });
     renderChart(m,renderSim(m));
