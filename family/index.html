@@ -11,7 +11,7 @@
     --void:#0B0D10; --panel:#14171C; --sunk:#1B1F26; --line:#252A33; --line-2:#1D222A;
     --ink:#E9ECEF; --dim:#8C949F; --faint:#59616D;
     --brass:#C9A227; --brass-dim:#6E5A16;
-    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#5A6473;
+    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#5A6473; --teal:#3F8E96;
     --r:10px;
     --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","Pretendard","Noto Sans KR",sans-serif;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
@@ -123,6 +123,33 @@
   .gap input[type=number] { width:112px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--sunk); color:var(--ink); font-family:var(--mono); font-size:13px; text-align:right; }
   .gap input:focus { outline:none; border-color:var(--brass); }
 
+  /* 지원·절세 원장 — 상태가 금액만큼 중요하므로 칩으로 형태화한다 */
+  .chip { font-family:var(--mono); font-size:9.5px; letter-spacing:.05em; padding:2px 6px; border-radius:4px; flex-shrink:0; }
+  .chip--ok  { background:rgba(78,158,127,.15);  color:var(--jade); }
+  .chip--chk { background:rgba(201,162,39,.15);  color:var(--brass); }
+  .chip--no  { background:rgba(196,97,76,.14);   color:var(--clay); }
+  .bn { border-top:1px solid var(--line-2); padding:11px 16px; }
+  .bn:first-child { border-top:none; }
+  .bn__r { display:flex; align-items:center; gap:9px; }
+  .bn__n { flex:1; min-width:0; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bn__v { font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums; flex-shrink:0; }
+  .bn__m { display:flex; gap:8px; margin-top:3px; font-size:10.5px; color:var(--faint); }
+  .bn__m span:first-child { flex:1; min-width:0; }
+  .bn__note { font-size:12px; color:var(--dim); line-height:1.6; margin-top:6px; padding-left:0; }
+  .bn--no .bn__n { color:var(--faint); }
+
+  /* 우선순위 액션 — 순위와 영향금액을 같은 줄에서 읽히게 */
+  .act { display:flex; gap:12px; padding:13px 16px; border-top:1px solid var(--line-2); align-items:flex-start; }
+  .act:first-child { border-top:none; }
+  .act s { width:3px; align-self:stretch; border-radius:2px; text-decoration:none; flex-shrink:0; }
+  .act--act s { background:var(--brass); } .act--warn s { background:var(--clay); }
+  .act__b { flex:1; min-width:0; }
+  .act__t { font-size:13.5px; font-weight:600; letter-spacing:-.01em; }
+  .act__d { font-size:12.5px; color:var(--dim); line-height:1.6; margin-top:3px; }
+  .act__i { text-align:right; flex-shrink:0; }
+  .act__iv { font-family:var(--mono); font-size:14px; font-weight:700; color:var(--brass); font-variant-numeric:tabular-nums; }
+  .act__ih { font-size:10px; color:var(--faint); margin-top:2px; }
+
   .note { padding:12px 16px; font-size:12px; color:var(--faint); line-height:1.65; border-top:1px solid var(--line-2); }
   .note b { color:var(--dim); font-weight:600; }
   footer { margin-top:24px; text-align:center; }
@@ -212,6 +239,47 @@
     </section>
   </div>
 
+  <!-- 지원·절세 -->
+  <div class="pane" data-pane="support">
+    <section class="panel"><div class="view" id="vSupport"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">산후조리원 실부담</span><span class="hd__n">만원</span></div>
+      <div class="sim" style="padding-top:14px">
+        <div class="fund" id="ppFund"></div>
+        <div class="keys" id="ppKeys"></div>
+        <div class="out" id="ppOut"></div>
+      </div>
+      <div class="note" id="ppNote"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">현금 지원</span><span class="hd__n">받는 돈</span></div>
+      <div id="bnCash"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">세제 혜택</span><span class="hd__n">덜 내는 돈</span></div>
+      <div id="bnTax"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">정책 대출</span><span class="hd__n">자격 여부</span></div>
+      <div id="bnLoan"></div>
+    </section>
+  </div>
+
+  <!-- 전략 -->
+  <div class="pane" data-pane="strategy">
+    <section class="panel"><div class="view" id="vStrategy"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">자산 집중도</span><span class="hd__n">전체 대비</span></div>
+      <div class="chart" style="padding:16px"><div class="fund" id="concFund" style="height:30px;margin:0 0 10px"></div><div class="keys" id="concKeys"></div></div>
+      <div class="note" id="concNote"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">우선순위</span><span class="hd__n">영향 크기순</span></div>
+      <div id="actList"></div>
+      <div class="note">영향 금액은 <b>그 항목을 방치했을 때 잃는 돈</b>이다. 순위는 확실성이 아니라 크기로 매겼으니, 확인이 쉬운 것부터 처리해도 된다.</div>
+    </section>
+  </div>
+
   <footer>
     <p>단위: 만원 · 데이터 갱신은 Claude Code 세션에서 (매월 21일 포함 토요일)</p>
     <p id="stamp"></p>
@@ -232,7 +300,9 @@
     {id:'realestate',label:'부동산',color:CLS.realestate.color},
     {id:'equity',label:'투자',color:CLS.equity.color},
     {id:'cash',label:'현금',color:CLS.cash.color},
-    {id:'pension',label:'연금',color:CLS.pension.color}
+    {id:'pension',label:'연금',color:CLS.pension.color},
+    {id:'support',label:'지원·절세',color:'var(--teal)',advisory:true},
+    {id:'strategy',label:'전략',color:'var(--brass)',advisory:true}
   ];
   var D=null;
 
@@ -379,7 +449,7 @@
       var b=el('button','tab'+(t.id==='overview'?' on':''));
       var s=el('s'); s.style.background=t.color; b.appendChild(s);
       b.appendChild(document.createTextNode(t.label));
-      if(t.id!=='overview') b.appendChild(el('span','tab__v',m.byClass[t.id]?eok1(m.byClass[t.id])+'억':'—'));
+      if(t.id!=='overview' && !t.advisory) b.appendChild(el('span','tab__v',m.byClass[t.id]?eok1(m.byClass[t.id])+'억':'—'));
       b.addEventListener('click',function(){
         document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
         b.classList.add('on');
@@ -531,10 +601,93 @@
       +'</b>. 집값 상승률이 결과를 지배하므로 예측이 아니라 <b>가정의 결과</b>로 읽을 것.';
   }
 
+  var STATUS={eligible:['해당','ok'],check:['확인 필요','chk'],ineligible:['자격 밖','no']};
+
+  function renderBenefits(){
+    var box={cash:$('bnCash'),tax:$('bnTax'),loan:$('bnLoan')};
+    Object.keys(box).forEach(function(k){ box[k].innerHTML=''; });
+    (D.benefits||[]).forEach(function(b){
+      var host=box[b.kind]; if(!host) return;
+      var st=STATUS[b.status]||STATUS.check;
+      var w=el('div','bn'+(b.status==='ineligible'?' bn--no':''));
+      var r=el('div','bn__r');
+      r.appendChild(el('span','bn__n',b.label));
+      r.appendChild(el('span','chip chip--'+st[1],st[0]));
+      var amt=b.amount==null?'—':(b.kind==='loan'?eok1(b.amount)+'억':man(b.amount)+'만');
+      var v=el('span','bn__v num',amt);
+      v.style.color=b.amount==null?'var(--faint)':(b.status==='ineligible'?'var(--faint)':'var(--ink)');
+      r.appendChild(v); w.appendChild(r);
+      var meta=el('div','bn__m');
+      meta.appendChild(el('span',null,b.detail||''));
+      meta.appendChild(el('span',null,b.when||''));
+      w.appendChild(meta);
+      if(b.note) w.appendChild(el('div','bn__note',b.note));
+      host.appendChild(w);
+    });
+
+    // 조리원 실부담 — 모아둔 금고에서 얼마가 남는지가 이 화면의 요점이다
+    var S=D.benefitSummary||{}, cost=S.postpartumCost||0, vou=S.postpartumVoucher||0, net=cost-vou;
+    var fund=$('ppFund'), fk=$('ppKeys'); fund.innerHTML=''; fk.innerHTML='';
+    [['바우처 커버',vou,'var(--teal)'],['실부담',net,'var(--brass)']].forEach(function(p){
+      if(p[1]<=0) return;
+      var w=p[1]/cost*100;
+      var i=el('i',null,w>18?man(p[1])+'만':''); i.style.width=w+'%'; i.style.background=p[2]; fund.appendChild(i);
+      var k=el('span','key'); var sw=el('s'); sw.style.background=p[2]; k.appendChild(sw);
+      k.appendChild(document.createTextNode(p[0]+' ')); k.appendChild(el('em',null,man(p[1])+'만')); fk.appendChild(k);
+    });
+    var out=$('ppOut'); out.innerHTML='';
+    [['조리원 비용',man(cost)+'만',null],
+     ['첫만남 + 서울형','−'+man(vou)+'만','var(--teal)'],
+     ['실부담',man(net)+'만','var(--brass)'],
+     ['금고에서 남는 돈','+'+man(vou)+'만','var(--jade)']
+    ].forEach(function(row){
+      var d=el('div'); d.appendChild(el('div','out__k',row[0]));
+      var v=el('div','out__v num',row[1]); if(row[2])v.style.color=row[2]; d.appendChild(v); out.appendChild(d);
+    });
+    var extraMonths=(vou/(S.sitterMonthly||1600000)).toFixed(1);
+    $('ppNote').innerHTML='조리원 금고에 <b>'+man(cost)+'만원</b>을 모아뒀는데 바우처로 <b>'+man(vou)
+      +'만원</b>이 덮인다. 남는 <b>'+man(vou)+'만원</b>을 시터 금고로 옮기면 시터 여력이 <b>약 '+extraMonths
+      +'개월</b> 늘어난다.<br>다만 첫만남이용권 200만원은 어차피 아이에게 쓸 돈이라 '
+      +'<b>순수 추가분은 서울형 100만원</b>이고 나머지는 용도 대체다.';
+  }
+
+  function renderStrategy(m){
+    var fund=$('concFund'), fk=$('concKeys'); fund.innerHTML=''; fk.innerHTML='';
+    Object.keys(CLS).forEach(function(k){
+      var v=m.byClass[k]||0; if(v<=0) return;
+      var w=v/m.totalAssets*100;
+      var i=el('i',null,w>12?w.toFixed(0)+'%':''); i.style.width=w+'%'; i.style.background=CLS[k].color; fund.appendChild(i);
+      var key=el('span','key'); var sw=el('s'); sw.style.background=CLS[k].color; key.appendChild(sw);
+      key.appendChild(document.createTextNode(CLS[k].label+' '));
+      key.appendChild(el('em',null,w.toFixed(1)+'%')); fk.appendChild(key);
+    });
+    var re=(m.byClass.realestate||0)/m.totalAssets*100, eq=(m.byClass.equity||0)/m.totalAssets*100;
+    var jInt=D.liabilities.reduce(function(s,l){return s+l.balance*l.rate/100;},0);
+    $('concNote').innerHTML='부동산 <b>'+re.toFixed(0)+'%</b>가 전세보증금 한 덩어리다. '
+      +'무수익 자산인데 그 자리를 지키려고 이자를 <b>연 '+man(jInt)+'만원</b> 내고 있다.<br>'
+      +'투자 <b>'+eq.toFixed(1)+'%</b>는 38세치고 극단적으로 낮지만 분모가 전세보증금이라 그런 것이고, '
+      +'2027-05에 <b>자동으로 정상화된다</b> — 지금 억지로 비중을 올릴 국면이 아니다.';
+
+    var list=$('actList'); list.innerHTML='';
+    (D.actions||[]).forEach(function(a,i){
+      var w=el('div','act act--'+(a.tone||'act'));
+      w.appendChild(el('s'));
+      var b=el('div','act__b');
+      b.appendChild(el('div','act__t',(i+1)+'. '+a.label));
+      b.appendChild(el('div','act__d',a.t));
+      w.appendChild(b);
+      var box=el('div','act__i');
+      box.appendChild(el('div','act__iv',a.impact));
+      box.appendChild(el('div','act__ih',a.horizon));
+      w.appendChild(box); list.appendChild(w);
+    });
+  }
+
   function renderAll(){
     var m=derive();
     renderTop(m); renderTabs(m); renderLists(m);
-    ['realestate','equity','cash','pension'].forEach(function(k){
+    renderBenefits(); renderStrategy(m);
+    ['realestate','equity','cash','pension','support','strategy'].forEach(function(k){
       renderView(k,'v'+k.charAt(0).toUpperCase()+k.slice(1));
     });
     renderChart(m,renderSim(m));
