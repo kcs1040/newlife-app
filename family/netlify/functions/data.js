@@ -1,10 +1,28 @@
 // 범용 JSON 저장소. GitHub 저장소의 파일 하나를 읽고 쓴다.
 // 토큰은 Netlify 환경변수에만 존재하며 브라우저로 전달되지 않는다.
 
+const crypto = require('crypto');
+
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
 const TOKEN = process.env.GITHUB_TOKEN;
 const FILE = process.env.DATA_FILE || 'finance.json';
+
+// 공유 암호. Netlify 사이트 보호를 끄더라도 이 함수만은 열리지 않게 한다.
+// 미설정이면 검사하지 않으므로 기존 배포가 깨지지 않는다 — 설정하는 순간 켜진다.
+const SECRET = process.env.APP_SECRET;
+// CORS는 같은 사이트에서만 부르므로 굳이 열어둘 이유가 없다.
+const ORIGIN = process.env.APP_ORIGIN || '';
+
+function authorized(event) {
+  if (!SECRET) return true;
+  const h = event.headers || {};
+  const given = h['x-app-key'] || h['X-App-Key'] || '';
+  const a = Buffer.from(String(given));
+  const b = Buffer.from(SECRET);
+  // 길이가 다르면 timingSafeEqual이 던지므로 먼저 거른다
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 const EMPTY = { items: [], accounts: [], updatedAt: null };
 
@@ -49,14 +67,17 @@ async function write(data, sha, message) {
 
 exports.handler = async (event) => {
   const headers = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': ORIGIN || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-App-Key',
     'Content-Type': 'application/json',
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
   if (!OWNER || !TOKEN) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'GITHUB_OWNER / GITHUB_TOKEN 미설정' }) };
+  }
+  if (!authorized(event)) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: '암호가 필요합니다' }) };
   }
 
   try {

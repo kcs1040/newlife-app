@@ -198,16 +198,17 @@
   <div class="pane" data-pane="cashflow">
     <section class="panel"><div class="view" id="vCashflow"></div></section>
     <section class="panel">
-      <div class="hd"><span class="hd__t">월 흐름 계획</span><span class="hd__n">수입 100% 기준</span></div>
-      <div style="padding:16px">
-        <div class="fund" id="cfFlow" style="height:30px;margin:0 0 10px"></div>
-        <div class="keys" id="cfKeys"></div>
-      </div>
-      <div id="cfLines"></div>
+      <div class="hd"><span class="hd__t">추이</span><span class="hd__n" id="cfCount"></span></div>
+      <div id="cfChartBox"></div>
     </section>
     <section class="panel">
-      <div class="hd"><span class="hd__t">월별 실적</span><span class="hd__n" id="cfCount"></span></div>
+      <div class="hd"><span class="hd__t">월별 실적</span><span class="hd__n">만원</span></div>
       <div id="cfActual"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">지금 계산에 쓰는 기준값</span><span class="hd__n" id="cfBasisTag"></span></div>
+      <div id="cfBasis"></div>
+      <div class="note" id="cfBasisNote"></div>
     </section>
   </div>
 
@@ -355,17 +356,37 @@
     return (a.value||0)+(a.buckets||[]).reduce(function(s,b){return s+(b.value||0);},0);
   }
 
+  function sumOf(o){ return Object.keys(o||{}).reduce(function(s,k){return s+(o[k]||0);},0); }
+
+  // 월 기준값. 실적이 WINDOW개월 이상 쌓이면 그 평균이 기준이 되고,
+  // 그 전까지만 초기 추정치를 쓴다 — 추정치는 발판이지 잣대가 아니다.
+  function basis(){
+    var CF=D.cashflow||{months:[]}, W=CF.window||3, ms=CF.months||[];
+    var sp=D.income.spouse, spIn=sp.pooled!=null?sp.pooled:sp.monthly;
+    if(ms.length>=W){
+      var r=ms.slice(-W), avg=function(f){return r.reduce(function(s,x){return s+f(x);},0)/W;};
+      return {source:'actual', n:W, total:ms.length,
+        inc:avg(function(x){return (x.income&&x.income.salary||0)+(x.income&&x.income.spouse||0);}),
+        exp:avg(function(x){return sumOf(x.expenses);}),
+        sav:avg(function(x){return sumOf(x.savings);})};
+    }
+    return {source:'estimate', n:ms.length, total:ms.length,
+      inc:D.income.salary.monthly+spIn,
+      exp:D.expenses.reduce(function(s,e){return s+e.monthly;},0),
+      sav:D.savings.reduce(function(s,e){return s+e.monthly;},0)};
+  }
+
   function derive(){
     // 아내 수입은 실제 총액이 아니라 가계로 들어오는 몫(pooled)만 센다
     var sp=D.income.spouse, spIn=sp.pooled!=null?sp.pooled:sp.monthly;
-    var inc=D.income.salary.monthly+spIn;
-    var exp=D.expenses.reduce(function(s,e){return s+e.monthly;},0);
-    var sav=D.savings.reduce(function(s,e){return s+e.monthly;},0);
+    var B=basis();
+    var inc=B.inc;
+    var exp=B.exp, sav=B.sav;
     var byClass={};
     D.accounts.forEach(function(a){ byClass[a.class]=(byClass[a.class]||0)+acctTotal(a); });
     var totalAssets=D.accounts.reduce(function(s,a){return s+acctTotal(a);},0);
     var totalDebt=D.liabilities.reduce(function(s,l){return s+l.balance;},0);
-    return {inc:inc,exp:exp,sav:sav,bonus:D.income.bonus.annual,spGross:sp.monthly,spIn:spIn,
+    return {inc:inc,exp:exp,sav:sav,basis:B,bonus:D.income.bonus.annual,spGross:sp.monthly,spIn:spIn,
       annualIncome:inc*12+D.income.bonus.annual, byClass:byClass,
       totalAssets:totalAssets,totalDebt:totalDebt,netWorth:totalAssets-totalDebt};
   }
@@ -830,69 +851,95 @@
   }
 
   function renderCashflow(m){
-    var P=planOf(m), CF=D.cashflow||{months:[]};
-    var flow=$('cfFlow'), fk=$('cfKeys'); flow.innerHTML=''; fk.innerHTML='';
-    [['고정지출',P.fixed,'var(--slate)'],['변동지출',P.variable,'var(--clay)'],
-     ['적립',P.saved,'var(--jade)'],['잉여',P.left,'var(--brass)']].forEach(function(p){
-      if(p[1]<=0) return;
-      var w=p[1]/P.income*100;
-      var i=el('i',null,w>13?man(p[1])+'만':''); i.style.width=w+'%'; i.style.background=p[2]; flow.appendChild(i);
-      var k=el('span','key'); var sw=el('s'); sw.style.background=p[2]; k.appendChild(sw);
-      k.appendChild(document.createTextNode(p[0]+' '));
-      k.appendChild(el('em',null,man(p[1])+'만 ('+w.toFixed(0)+'%)')); fk.appendChild(k);
-    });
+    var CF=D.cashflow||{months:[]}, ms=CF.months||[], W=CF.window||3;
+    $('cfCount').textContent=ms.length?ms.length+'개월':'기록 없음';
 
-    var box=$('cfLines'); box.innerHTML='';
-    function group(title,rows,color){
-      var h=el('div','ln ln--tot');
-      var s=el('s'); s.style.background=color; h.appendChild(s);
-      h.appendChild(el('span','ln__n',title)); h.appendChild(el('span','ln__t',''));
-      h.appendChild(el('span','ln__v num',man(rows.reduce(function(a,r){return a+r[1];},0))));
-      box.appendChild(h);
-      rows.forEach(function(r){
-        var x=el('div','ln ln--sub'); x.appendChild(el('s'));
-        x.appendChild(el('span','ln__n',r[0]));
-        if(r[2]) x.appendChild(el('span','ln__t',r[2]));
-        x.appendChild(el('span','ln__v num',man(r[1]))); box.appendChild(x);
-      });
-    }
-    var sp=D.income.spouse;
-    group('수입',[['본인 급여',D.income.salary.monthly],
-      ['아내 (총 '+man(sp.monthly)+'만 중 가계 반영분)',m.spIn]],'var(--brass)');
-    group('고정지출',D.expenses.filter(function(e){return e.kind==='fixed';})
-      .map(function(e){return [e.label,e.monthly];}),'var(--slate)');
-    group('변동지출',D.expenses.filter(function(e){return e.kind!=='fixed';})
-      .map(function(e){return [e.label,e.monthly,'조절 가능'];}),'var(--clay)');
-    group('적립',D.savings.map(function(e){return [e.label,e.monthly];}),'var(--jade)');
-    box.appendChild(totalRow('잉여',P.left,'var(--brass)'));
-
-    var act=$('cfActual'); act.innerHTML='';
-    $('cfCount').textContent=CF.months.length?CF.months.length+'개월 기록':'기록 없음';
-    if(!CF.months.length){
+    // 추이 — 실적이 2개월 이상 쌓여야 선이 의미를 가진다
+    var cb=$('cfChartBox'); cb.innerHTML='';
+    if(ms.length<2){
       var e0=el('div','empty');
-      e0.innerHTML='첫 실적 입력은 <b style="color:var(--brass)">'+CF.first
-        +'(토)</b><br><span style="color:var(--faint)">그날 지난 한 달의 수입·지출 실적을 말하면 여기에 쌓인다.</span>';
-      act.appendChild(e0);
-      act.appendChild(el('div','note','몇 달치가 모이면 계획과 실제의 차이가 어디서 반복되는지 보인다. '
-        +'가장 먼저 볼 줄은 변동지출 '+man(P.variable)+'만원 — 통제 가능한 유일한 덩어리다.'));
-      return;
+      e0.innerHTML='첫 실적 입력 <b style="color:var(--brass)">'+CF.first+'(토)</b>'
+        +'<br><span style="color:var(--faint)">두 달치가 쌓이면 여기에 추이선이 그려진다.</span>';
+      cb.appendChild(e0);
+    } else {
+      var box=el('div','chart'), svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('viewBox','0 0 660 220'); box.appendChild(svg); cb.appendChild(box);
+      var series=[['수입',function(x){return sumOf(x.income);},'var(--brass)'],
+                  ['지출',function(x){return sumOf(x.expenses);},'var(--clay)'],
+                  ['적립',function(x){return sumOf(x.savings);},'var(--jade)']];
+      var vals=[]; ms.forEach(function(x){series.forEach(function(sr){vals.push(sr[1](x));});});
+      var hi=Math.max.apply(null,vals)*1.15||1, W2=660, H=220, PADX=44, PADY=16;
+      var X=function(i){return PADX+i*(W2-PADX-10)/Math.max(1,ms.length-1);};
+      var Y=function(v){return H-PADY-v/hi*(H-PADY*2);};
+      [0,hi/2,hi].forEach(function(g){
+        var ln=document.createElementNS(svg.namespaceURI,'line');
+        ln.setAttribute('x1',PADX); ln.setAttribute('x2',W2-10);
+        ln.setAttribute('y1',Y(g)); ln.setAttribute('y2',Y(g));
+        ln.setAttribute('stroke','var(--line-2)'); svg.appendChild(ln);
+        var t=document.createElementNS(svg.namespaceURI,'text');
+        t.setAttribute('x',PADX-7); t.setAttribute('y',Y(g)+3);
+        t.setAttribute('text-anchor','end'); t.setAttribute('class','glabel');
+        t.textContent=man(g); svg.appendChild(t);
+      });
+      series.forEach(function(sr){
+        var pth=document.createElementNS(svg.namespaceURI,'path');
+        pth.setAttribute('d',ms.map(function(x,i){return (i?'L':'M')+X(i)+' '+Y(sr[1](x));}).join(' '));
+        pth.setAttribute('fill','none'); pth.setAttribute('stroke',sr[2]); pth.setAttribute('stroke-width','2');
+        svg.appendChild(pth);
+        ms.forEach(function(x,i){
+          var c=document.createElementNS(svg.namespaceURI,'circle');
+          c.setAttribute('cx',X(i)); c.setAttribute('cy',Y(sr[1](x))); c.setAttribute('r','3');
+          c.setAttribute('fill',sr[2]); svg.appendChild(c);
+        });
+      });
+      ms.forEach(function(x,i){
+        var t=document.createElementNS(svg.namespaceURI,'text');
+        t.setAttribute('x',X(i)); t.setAttribute('y',H-2);
+        t.setAttribute('text-anchor','middle'); t.setAttribute('class','glabel');
+        t.textContent=x.m.slice(5); svg.appendChild(t);
+      });
+      var ks=el('div','keys'); ks.style.padding='0 16px 14px';
+      series.forEach(function(sr){
+        var k=el('span','key'); var sw=el('s'); sw.style.background=sr[2]; k.appendChild(sw);
+        k.appendChild(document.createTextNode(sr[0])); ks.appendChild(k);
+      });
+      cb.appendChild(ks);
     }
-    CF.months.forEach(function(x){
-      var inc=Object.keys(x.income||{}).reduce(function(s,k){return s+x.income[k];},0);
-      var exp=Object.keys(x.expenses||{}).reduce(function(s,k){return s+x.expenses[k];},0);
-      var sav=Object.keys(x.savings||{}).reduce(function(s,k){return s+x.savings[k];},0);
-      var left=inc-exp-sav, dv=left-P.left;
-      var r=el('div','ln');
-      var s=el('s'); s.style.background=dv>=0?'var(--jade)':'var(--clay)'; r.appendChild(s);
-      r.appendChild(el('span','ln__n',x.m));
-      r.appendChild(el('span','ln__i','수입 '+man(inc)+' · 지출 '+man(exp)+' · 적립 '+man(sav)));
-      var d=el('span','ret',(dv>=0?'+':'−')+man(Math.abs(dv)));
-      d.style.color=dv>=0?'var(--jade)':'var(--clay)'; r.appendChild(d);
-      r.appendChild(el('span','ln__v num',man(left)));
-      act.appendChild(r);
+
+    // 월별 실적
+    var act=$('cfActual'); act.innerHTML='';
+    if(!ms.length){
+      act.appendChild(el('div','empty','아직 없다. 8/22에 지난 한 달 수입·지출을 말하면 첫 줄이 생긴다.'));
+    } else {
+      ms.slice().reverse().forEach(function(x){
+        var inc=sumOf(x.income), exp=sumOf(x.expenses), sav=sumOf(x.savings), left=inc-exp-sav;
+        var r=el('div','ln');
+        var sw=el('s'); sw.style.background=left>=0?'var(--jade)':'var(--clay)'; r.appendChild(sw);
+        r.appendChild(el('span','ln__n',x.m));
+        r.appendChild(el('span','ln__i','수입 '+man(inc)+' · 지출 '+man(exp)+' · 적립 '+man(sav)));
+        var v=el('span','ln__v num',(left>=0?'+':'−')+man(Math.abs(left)));
+        v.style.color=left>=0?'var(--jade)':'var(--clay)'; r.appendChild(v);
+        act.appendChild(r);
+        if(x.note) act.appendChild(el('div','note',x.note));
+      });
+      act.appendChild(el('div','note','오른쪽 숫자는 그달에 남은 돈이다. 수입 − 지출 − 적립.'));
+    }
+
+    // 기준값 — 시뮬레이터와 저축률이 무엇을 근거로 계산되는지 밝힌다
+    var B=m.basis, bb=$('cfBasis'); bb.innerHTML='';
+    $('cfBasisTag').textContent=B.source==='actual'?'최근 '+B.n+'개월 실적 평균':'초기 추정치';
+    [['월 수입',B.inc],['월 지출',B.exp],['월 적립',B.sav],['남는 돈',B.inc-B.exp-B.sav]].forEach(function(r,i){
+      var x=el('div','ln'); var sw=el('s');
+      sw.style.background=i===3?'var(--brass)':'var(--slate)'; x.appendChild(sw);
+      x.appendChild(el('span','ln__n',r[0]));
+      x.appendChild(el('span','ln__v num',man(r[1]))); bb.appendChild(x);
     });
-    act.appendChild(el('div','note','오른쪽 숫자는 그달의 잉여, 색 있는 숫자는 계획('
-      +man(P.left)+'만) 대비 편차다.'));
+    $('cfBasisNote').innerHTML = B.source==='actual'
+      ? '최근 <b>'+B.n+'개월 실적 평균</b>을 쓰고 있다 (총 '+B.total+'개월 기록). '
+        +'매수 시뮬레이터의 월 여유와 저축률이 전부 이 숫자에서 나온다.'
+      : '아직 <b>초기 추정치</b>다 — 대화에서 받아적은 값이라 검증되지 않았다. '
+        +'실적이 <b>'+W+'개월</b> 쌓이면 그 평균이 자동으로 이 자리를 대신하고, '
+        +'그때부터 매수 여력과 저축률이 실제 삶에서 나온 숫자로 계산된다. 현재 '+B.total+'개월.';
   }
 
   function renderAll(){
@@ -910,13 +957,27 @@
     $(id).addEventListener('input',function(){ var m=derive(); renderChart(m,renderSim(m)); });
   });
 
-  fetch(API)
-    .then(function(r){ if(!r.ok) throw new Error('불러오기 실패 ('+r.status+')'); return r.json(); })
-    .then(function(d){ D=d; renderAll(); })
-    .catch(function(e){
-      document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
-        '<div style="padding:12px 14px;border-radius:8px;background:rgba(196,97,76,.13);color:var(--clay);font-family:var(--mono);font-size:12px;margin-bottom:12px">'+e.message+'</div>');
-    });
+  // 공유 암호는 브라우저에만 남기고 코드에는 두지 않는다. 401이면 다시 묻는다.
+  var KEY='newlife.familyKey';
+  function load(force){
+    var k=force?null:localStorage.getItem(KEY);
+    if(force){
+      k=window.prompt('가족 자산 화면 암호');
+      if(k) localStorage.setItem(KEY,k); else return;
+    }
+    fetch(API,{headers:k?{'X-App-Key':k}:{}})
+      .then(function(r){
+        if(r.status===401){ localStorage.removeItem(KEY); load(true); return null; }
+        if(!r.ok) throw new Error('불러오기 실패 ('+r.status+')');
+        return r.json();
+      })
+      .then(function(d){ if(d){ D=d; renderAll(); } })
+      .catch(function(e){
+        document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+          '<div style="padding:12px 14px;border-radius:8px;background:rgba(196,97,76,.13);color:var(--clay);font-family:var(--mono);font-size:12px;margin-bottom:12px">'+e.message+'</div>');
+      });
+  }
+  load(false);
 })();
 </script>
 </body>
