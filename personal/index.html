@@ -250,8 +250,6 @@
     cell.innerHTML = '<div class="stat__value" id="stat-' + h.key + '">–</div>'
       + '<div class="stat__label"></div><div class="stat__sub"></div>';
     cell.querySelector('.stat__label').textContent = h.short;
-    cell.querySelector('.stat__sub').textContent =
-      h.weekly === 'count' ? '목표 ' + h.meta : '매일';
     statsGrid.appendChild(cell);
   });
 
@@ -356,8 +354,13 @@
     }
     HABITS.forEach(function (h) {
       var n = days.filter(function (d) { return fullData[d] && fullData[d][h.key]; }).length;
-      document.getElementById('stat-' + h.key).textContent =
-        h.weekly === 'count' ? n + '회' : n + ' / ' + days.length;
+      var cell = document.getElementById('stat-' + h.key);
+      // 매일 항목은 분모를 쓰지 않는다 — 경과일을 목표로 오해하게 만든다.
+      cell.textContent = h.weekly === 'count' ? n + '회' : n + '일';
+      var sub = cell.parentNode.querySelector('.stat__sub');
+      if (sub) sub.textContent = h.weekly === 'count'
+        ? '목표 ' + h.meta
+        : '이번 주 ' + days.length + '일 중';
     });
   }
 
