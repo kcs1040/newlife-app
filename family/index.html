@@ -11,40 +11,33 @@
     --void:#0B0D10; --panel:#14171C; --sunk:#1B1F26; --line:#252A33; --line-2:#1D222A;
     --ink:#E9ECEF; --dim:#8C949F; --faint:#59616D;
     --brass:#C9A227; --brass-dim:#6E5A16;
-    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#4A5361;
+    --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#5A6473;
     --r:10px;
     --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","Pretendard","Noto Sans KR",sans-serif;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
   }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
   * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--void); color:var(--ink); font-family:var(--sans);
-    -webkit-font-smoothing:antialiased; line-height:1.5;
-  }
+  body { margin:0; background:var(--void); color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased; line-height:1.5; }
   .wrap { max-width:900px; margin:0 auto; padding:22px 16px 72px; }
   .num { font-family:var(--mono); font-variant-numeric:tabular-nums; }
 
-  /* ── 헤더 ── */
-  .top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:16px; }
+  .top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; }
   .top__t { font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
   .top__d { font-family:var(--mono); font-size:11.5px; color:var(--faint); }
 
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); }
-  .panel + .panel, section { margin-top:12px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); margin-bottom:12px; }
   .hd { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line-2); }
   .hd__t { font-size:11.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
   .hd__n { font-family:var(--mono); font-size:10.5px; color:var(--faint); }
 
-  /* ── 순자산 히어로 ── */
+  /* 히어로 */
   .hero { padding:22px 18px 18px; }
   .hero__k { font-size:11.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); margin:0 0 6px; }
   .hero__v { font-family:var(--mono); font-size:46px; font-weight:700; line-height:1; letter-spacing:-.03em; color:var(--brass); font-variant-numeric:tabular-nums; }
   .hero__u { font-size:20px; color:var(--brass-dim); margin-left:2px; }
   .hero__s { font-family:var(--mono); font-size:12.5px; color:var(--dim); margin-top:9px; }
-  .hero__s b { color:var(--jade); font-weight:400; }
-  .hero__s i { color:var(--clay); font-style:normal; }
-
+  .hero__s b { color:var(--jade); font-weight:400; } .hero__s i { color:var(--clay); font-style:normal; }
   .stack { display:flex; height:9px; border-radius:3px; overflow:hidden; margin-top:16px; background:var(--sunk); }
   .stack i { display:block; height:100%; }
   .keys { display:flex; flex-wrap:wrap; gap:5px 15px; margin-top:11px; }
@@ -52,7 +45,6 @@
   .key s { width:7px; height:7px; border-radius:2px; text-decoration:none; flex-shrink:0; }
   .key em { font-family:var(--mono); font-style:normal; color:var(--ink); }
 
-  /* ── 지표 스트립 ── */
   .strip { display:grid; grid-template-columns:repeat(2,1fr); }
   @media (min-width:620px) { .strip { grid-template-columns:repeat(4,1fr); } }
   .met { padding:14px 16px; border-top:1px solid var(--line-2); }
@@ -62,78 +54,80 @@
   .met__v { font-family:var(--mono); font-size:21px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums; }
   .met__s { font-size:10.5px; color:var(--faint); margin-top:1px; }
 
-  /* ── 자산 목록 ── */
+  /* 탭 */
+  .tabs { display:flex; gap:3px; margin:18px 0 12px; overflow-x:auto; scrollbar-width:none; padding-bottom:1px; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab {
+    flex:0 0 auto; padding:9px 15px; border:1px solid var(--line); border-radius:7px; background:var(--panel);
+    color:var(--dim); font-family:inherit; font-size:13px; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:7px;
+  }
+  .tab s { width:6px; height:6px; border-radius:50%; text-decoration:none; opacity:.55; }
+  .tab.on { background:var(--sunk); color:var(--ink); border-color:var(--slate); font-weight:600; }
+  .tab.on s { opacity:1; }
+  .tab__v { font-family:var(--mono); font-size:11.5px; color:var(--faint); }
+  .tab.on .tab__v { color:var(--dim); }
+  .pane { display:none; } .pane.on { display:block; }
+
+  /* 판단 블록 */
+  .view { padding:16px; }
+  .view__h { font-size:15px; font-weight:600; line-height:1.45; letter-spacing:-.01em; margin:0 0 13px; }
+  .pt { display:flex; gap:10px; padding:9px 0; border-top:1px solid var(--line-2); font-size:13px; color:var(--dim); line-height:1.6; }
+  .pt:first-of-type { border-top:none; padding-top:2px; }
+  .pt s { width:3px; border-radius:2px; flex-shrink:0; text-decoration:none; margin:3px 0; }
+  .pt--act s  { background:var(--brass); } .pt--warn s { background:var(--clay); }
+  .pt--good s { background:var(--jade); }  .pt--info s { background:var(--slate); }
+
+  /* 목록 */
   .ln { display:flex; align-items:center; gap:11px; padding:10px 16px; border-top:1px solid var(--line-2); }
   .ln:first-child { border-top:none; }
   .ln s { width:3px; align-self:stretch; border-radius:2px; text-decoration:none; flex-shrink:0; }
   .ln__n { flex:1; min-width:0; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ln__t { font-size:10.5px; color:var(--faint); flex-shrink:0; }
   .ln__v { font-family:var(--mono); font-size:13.5px; flex-shrink:0; font-variant-numeric:tabular-nums; }
-  .ln--tot { background:var(--sunk); }
-  .ln--tot .ln__n, .ln--tot .ln__v { font-weight:700; }
+  .ln--tot { background:var(--sunk); } .ln--tot .ln__n, .ln--tot .ln__v { font-weight:700; }
   .warn { color:var(--brass); }
+  .empty { padding:20px 16px; text-align:center; font-size:12.5px; color:var(--faint); }
 
-  /* ── 매수 시뮬레이터 ── */
+  /* 시뮬레이터 */
   .sim { padding:16px; }
   .sim__row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:9px; }
   .sim__price { font-family:var(--mono); font-size:31px; font-weight:700; letter-spacing:-.02em; }
   .sim__cap { font-size:11px; color:var(--faint); }
-  input[type=range] {
-    -webkit-appearance:none; appearance:none; width:100%; height:26px; background:transparent; margin:0; cursor:pointer;
-  }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:26px; background:transparent; margin:0; cursor:pointer; }
   input[type=range]::-webkit-slider-runnable-track { height:4px; border-radius:2px; background:var(--sunk); }
   input[type=range]::-moz-range-track { height:4px; border-radius:2px; background:var(--sunk); }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--brass);
-    border:3px solid var(--panel); margin-top:-8px; box-shadow:0 0 0 1px var(--brass-dim);
-  }
-  input[type=range]::-moz-range-thumb {
-    width:20px; height:20px; border-radius:50%; background:var(--brass); border:3px solid var(--panel);
-  }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--brass); border:3px solid var(--panel); margin-top:-8px; box-shadow:0 0 0 1px var(--brass-dim); }
+  input[type=range]::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:var(--brass); border:3px solid var(--panel); }
   input[type=range]:focus-visible { outline:2px solid var(--brass); outline-offset:4px; }
-
   .fund { display:flex; height:26px; border-radius:5px; overflow:hidden; margin:13px 0 8px; background:var(--sunk); }
   .fund i { display:flex; align-items:center; justify-content:center; height:100%; font-family:var(--mono); font-size:10.5px; color:#0B0D10; font-weight:700; overflow:hidden; white-space:nowrap; }
-
   .out { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line-2); border-radius:7px; overflow:hidden; margin-top:13px; }
   @media (min-width:620px) { .out { grid-template-columns:repeat(4,1fr); } }
   .out div { background:var(--panel); padding:11px 12px; }
   .out__k { font-size:10.5px; color:var(--faint); }
   .out__v { font-family:var(--mono); font-size:16px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
-
   .verdict { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:7px; margin-top:13px; font-size:13px; }
   .verdict b { font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:4px; flex-shrink:0; }
 
-  /* ── 차트 ── */
   .chart { padding:14px 10px 8px; }
   .chart svg { width:100%; height:auto; display:block; overflow:visible; }
   .glabel { font-family:var(--mono); font-size:9.5px; fill:var(--faint); }
-  .evt { font-family:var(--sans); font-size:9.5px; fill:var(--dim); }
 
-  /* ── 입력 ── */
   .gap { padding:13px 16px; border-top:1px solid var(--line-2); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .gap label { font-size:12.5px; color:var(--dim); flex:1; min-width:150px; }
-  .gap input[type=number] {
-    width:112px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--sunk);
-    color:var(--ink); font-family:var(--mono); font-size:13px; text-align:right;
-  }
+  .gap input[type=number] { width:112px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--sunk); color:var(--ink); font-family:var(--mono); font-size:13px; text-align:right; }
   .gap input:focus { outline:none; border-color:var(--brass); }
 
   .note { padding:12px 16px; font-size:12px; color:var(--faint); line-height:1.65; border-top:1px solid var(--line-2); }
   .note b { color:var(--dim); font-weight:600; }
-
   footer { margin-top:24px; text-align:center; }
   footer p { font-family:var(--mono); font-size:10px; color:var(--faint); margin:0; line-height:1.8; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top">
-    <span class="top__t">우리집 자산</span>
-    <span class="top__d" id="asOf"></span>
-  </div>
+  <div class="top"><span class="top__t">우리집 자산</span><span class="top__d" id="asOf"></span></div>
 
-  <!-- 순자산 -->
   <div class="panel">
     <div class="hero">
       <p class="hero__k">순자산</p>
@@ -145,46 +139,80 @@
     <div class="strip" id="strip"></div>
   </div>
 
-  <!-- 자산·부채 -->
-  <section class="panel">
-    <div class="hd"><span class="hd__t">자산 · 부채</span><span class="hd__n">만원</span></div>
-    <div id="lines"></div>
-    <div class="gap">
-      <label for="stockIn">주식 평가액 (본인 + 아내) — <b class="warn">미파악</b></label>
-      <input id="stockIn" type="number" inputmode="numeric" placeholder="만원">
-    </div>
-  </section>
+  <div class="tabs" id="tabs"></div>
 
-  <!-- 매수 여력 -->
-  <section class="panel">
-    <div class="hd">
-      <span class="hd__t">주택 매수 여력</span>
-      <span class="hd__n" id="simWhen">2027-05 기준</span>
-    </div>
-    <div class="sim">
-      <div class="sim__row">
-        <div><span class="sim__price" id="pV">–</span><span style="color:var(--faint);font-size:15px">억</span></div>
-        <span class="sim__cap" id="pCap"></span>
+  <!-- 개요 -->
+  <div class="pane on" data-pane="overview">
+    <section class="panel">
+      <div class="hd"><span class="hd__t">자산 · 부채 전체</span><span class="hd__n">만원</span></div>
+      <div id="allLines"></div>
+    </section>
+  </div>
+
+  <!-- 부동산 -->
+  <div class="pane" data-pane="realestate">
+    <section class="panel"><div class="view" id="vRealestate"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">보유 · 부채</span><span class="hd__n">만원</span></div>
+      <div id="reLines"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">매수 여력</span><span class="hd__n">2027-05 기준</span></div>
+      <div class="sim">
+        <div class="sim__row">
+          <div><span class="sim__price" id="pV">–</span><span style="color:var(--faint);font-size:15px">억</span></div>
+          <span class="sim__cap" id="pCap"></span>
+        </div>
+        <input type="range" id="pSlider" min="60000" max="200000" step="1000" value="100000" aria-label="목표 매수가">
+        <div class="fund" id="fund"></div>
+        <div class="keys" id="fundKeys"></div>
+        <div class="out" id="out"></div>
+        <div class="verdict" id="verdict"></div>
       </div>
-      <input type="range" id="pSlider" min="60000" max="200000" step="1000" value="100000" aria-label="목표 매수가">
-      <div class="fund" id="fund"></div>
-      <div class="keys" id="fundKeys"></div>
-      <div class="out" id="out"></div>
-      <div class="verdict" id="verdict"></div>
-    </div>
-    <div class="note" id="simNote"></div>
-  </section>
+      <div class="note" id="simNote"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">순자산 15년 투영</span><span class="hd__n">전세 유지 vs 매수</span></div>
+      <div class="chart"><svg id="proj" viewBox="0 0 660 250" role="img" aria-label="순자산 투영"></svg></div>
+      <div class="keys" style="padding:0 16px 14px" id="projKeys"></div>
+      <div class="note" id="projNote"></div>
+    </section>
+  </div>
 
-  <!-- 투영 -->
-  <section class="panel">
-    <div class="hd"><span class="hd__t">순자산 15년 투영</span><span class="hd__n">전세 유지 vs 매수</span></div>
-    <div class="chart"><svg id="proj" viewBox="0 0 660 260" role="img" aria-label="순자산 투영"></svg></div>
-    <div class="keys" style="padding:0 16px 14px" id="projKeys"></div>
-    <div class="note" id="projNote"></div>
-  </section>
+  <!-- 투자 -->
+  <div class="pane" data-pane="equity">
+    <section class="panel"><div class="view" id="vEquity"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">계좌</span><span class="hd__n">평가액 · 월 적립</span></div>
+      <div id="eqLines"></div>
+      <div class="gap">
+        <label for="stockIn">주식 평가액 합계 — <b class="warn">미파악</b></label>
+        <input id="stockIn" type="number" inputmode="numeric" placeholder="만원">
+      </div>
+    </section>
+  </div>
+
+  <!-- 현금 -->
+  <div class="pane" data-pane="cash">
+    <section class="panel"><div class="view" id="vCash"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">목적별 통장</span><span class="hd__n">만원</span></div>
+      <div id="cashLines"></div>
+    </section>
+  </div>
+
+  <!-- 연금 -->
+  <div class="pane" data-pane="pension">
+    <section class="panel"><div class="view" id="vPension"></div></section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">연금 자산</span><span class="hd__n">만원</span></div>
+      <div id="penLines"></div>
+      <div class="note" id="penNote"></div>
+    </section>
+  </div>
 
   <footer>
-    <p>단위: 만원 · 데이터는 Claude Code 세션에서 갱신 (매월 21일 포함 토요일)</p>
+    <p>단위: 만원 · 데이터 갱신은 Claude Code 세션에서 (매월 21일 포함 토요일)</p>
     <p id="stamp"></p>
   </footer>
 </div>
@@ -192,356 +220,324 @@
 <script>
 (function () {
   var API = '/.netlify/functions/data';
-
   var CLS = {
-    realestate: { label: '부동산', color: 'var(--jade)' },
-    equity:     { label: '투자',   color: 'var(--steel)' },
-    cash:       { label: '현금',   color: 'var(--brass)' },
-    pension:    { label: '연금',   color: 'var(--slate)' }
+    realestate:{label:'부동산',color:'var(--jade)'},
+    equity:{label:'투자',color:'var(--steel)'},
+    cash:{label:'현금',color:'var(--brass)'},
+    pension:{label:'연금',color:'var(--slate)'}
   };
-
+  var TABS = [
+    {id:'overview',   label:'개요',   color:'var(--ink)'},
+    {id:'realestate', label:'부동산', color:CLS.realestate.color},
+    {id:'equity',     label:'투자',   color:CLS.equity.color},
+    {id:'cash',       label:'현금',   color:CLS.cash.color},
+    {id:'pension',    label:'연금',   color:CLS.pension.color}
+  ];
   var D = null, stockValue = null;
 
-  function $(id) { return document.getElementById(id); }
-  function n(v) { return (Math.round(v)).toLocaleString('ko-KR'); }
-  function eok(v) { return (v / 10000).toFixed(2); }
-  function eok1(v) { return (v / 10000).toFixed(1); }
-  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  function months(a, b) { return (+b.slice(0,4) - +a.slice(0,4)) * 12 + (+b.slice(5,7) - +a.slice(5,7)); }
+  function $(id){return document.getElementById(id);}
+  function n(v){return Math.round(v).toLocaleString('ko-KR');}
+  function eok(v){return (v/10000).toFixed(2);}
+  function eok1(v){return (v/10000).toFixed(1);}
+  function el(t,c,x){var e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;}
+  function months(a,b){return (+b.slice(0,4)-+a.slice(0,4))*12+(+b.slice(5,7)-+a.slice(5,7));}
 
-  /* ── 파생 계산 ────────────────────────────────────────── */
-  function derive() {
-    var inc = D.income.salary.monthly + D.income.spouse.monthly;
-    var exp = D.expenses.reduce(function (s, e) { return s + e.monthly; }, 0);
-    var sav = D.savings.reduce(function (s, e) { return s + e.monthly; }, 0);
-    var bonus = D.income.bonus.annual;
-
-    var assets = D.assets.map(function (a) {
-      var v = a.value;
-      if (a.unknown && stockValue != null) {
-        // 입력받은 총 주식 평가액을 월 적립 비율로 배분한다.
-        var tot = D.assets.filter(function (x) { return x.unknown; })
-                          .reduce(function (s, x) { return s + (x.monthlyAdd || 0); }, 0);
-        v = tot ? stockValue * (a.monthlyAdd || 0) / tot : 0;
+  function derive(){
+    var inc=D.income.salary.monthly+D.income.spouse.monthly;
+    var exp=D.expenses.reduce(function(s,e){return s+e.monthly;},0);
+    var sav=D.savings.reduce(function(s,e){return s+e.monthly;},0);
+    var assets=D.assets.map(function(a){
+      var v=a.value;
+      if(a.unknown&&stockValue!=null){
+        var tot=D.assets.filter(function(x){return x.unknown;}).reduce(function(s,x){return s+(x.monthlyAdd||0);},0);
+        v=tot?stockValue*(a.monthlyAdd||0)/tot:0;
       }
-      return Object.assign({}, a, { value: v });
+      return Object.assign({},a,{value:v});
     });
-
-    var byClass = {};
-    assets.forEach(function (a) { if (a.value) byClass[a.class] = (byClass[a.class] || 0) + a.value; });
-    var totalAssets = assets.reduce(function (s, a) { return s + (a.value || 0); }, 0);
-    var totalDebt = D.liabilities.reduce(function (s, l) { return s + l.balance; }, 0);
-
-    return {
-      inc: inc, exp: exp, sav: sav, bonus: bonus,
-      leftover: inc - exp - sav,
-      annualIncome: inc * 12 + bonus,
-      assets: assets, byClass: byClass,
-      totalAssets: totalAssets, totalDebt: totalDebt,
-      netWorth: totalAssets - totalDebt,
-      hasUnknown: assets.some(function (a) { return a.unknown && a.value == null; })
-    };
+    var byClass={};
+    assets.forEach(function(a){ if(a.value) byClass[a.class]=(byClass[a.class]||0)+a.value; });
+    var totalAssets=assets.reduce(function(s,a){return s+(a.value||0);},0);
+    var totalDebt=D.liabilities.reduce(function(s,l){return s+l.balance;},0);
+    return {inc:inc,exp:exp,sav:sav,bonus:D.income.bonus.annual,
+      annualIncome:inc*12+D.income.bonus.annual, assets:assets, byClass:byClass,
+      totalAssets:totalAssets, totalDebt:totalDebt, netWorth:totalAssets-totalDebt,
+      hasUnknown:assets.some(function(a){return a.unknown&&a.value==null;})};
   }
 
-  /* 매수 시점(2027-05)의 가용 자기자본 */
-  function equityAt(m) {
-    var jeonse = m.assets.find(function (a) { return a.id === 'jeonse'; }).value;
-    var debt = m.totalDebt;
-    var cash = m.assets.filter(function (a) { return a.class === 'cash' && a.id !== 'cash-postpartum'; })
-                       .reduce(function (s, a) { return s + a.value; }, 0);
-    var stock = m.assets.filter(function (a) { return a.class === 'equity'; })
-                        .reduce(function (s, a) { return s + (a.value || 0); }, 0);
-    var mo = months(D.asOf, '2027-05');
-    var accrue = m.sav * mo;                 // 그때까지 추가 적립
-    var bonusOnce = m.bonus;                 // 2026말~2027초 보너스 1회
-    return {
-      jeonseNet: jeonse - debt, cash: cash, stock: stock,
-      accrue: accrue, bonus: bonusOnce,
-      total: (jeonse - debt) + cash + stock + accrue + bonusOnce
-    };
+  function equityAt(m){
+    var jeonse=m.assets.find(function(a){return a.id==='jeonse';}).value;
+    var cash=m.assets.filter(function(a){return a.class==='cash'&&a.id!=='cash-postpartum';})
+                     .reduce(function(s,a){return s+a.value;},0);
+    var stock=m.assets.filter(function(a){return a.class==='equity';})
+                      .reduce(function(s,a){return s+(a.value||0);},0);
+    var accrue=m.sav*months(D.asOf,'2027-05');
+    return {jeonseNet:jeonse-m.totalDebt, cash:cash, stock:stock, accrue:accrue, bonus:m.bonus,
+            total:(jeonse-m.totalDebt)+cash+stock+accrue+m.bonus};
   }
 
-  /* 특정 매수가에 대한 자금 구성과 부담 */
-  function simulate(price, m) {
-    var A = D.assumptions;
-    var eq = equityAt(m);
-    var need = price * (1 + A.acquisitionTaxRate / 100);
-    var corpLimit = D.creditLines.find(function (c) { return c.id === 'corp-home'; }).limit;
-
-    var ownUsed = Math.min(eq.total, need);
-    var rest = Math.max(0, need - ownUsed);
-    var corp = Math.min(corpLimit, rest);
-    var mortgage = Math.max(0, rest - corp);
-    var leftoverCash = Math.max(0, eq.total - need);
-
-    // 월 상환: 회사대출은 이자만, 주담대는 30년 원리금균등
-    var corpInt = corp * (A.mortgageRate ? A.rate : 0);
-    corpInt = corp * 0.015 / 12;
-    var imputed = corp * Math.max(0, (A.imputedInterestBase - 1.5) / 100) * (A.marginalTaxRate / 100) / 12;
-    var r = A.mortgageRate / 100 / 12, nper = 360;
-    var mtgPay = mortgage > 0 ? mortgage * r / (1 - Math.pow(1 + r, -nper)) : 0;
-    var propTax = price * (A.propertyTaxRate / 100) / 12;
-    var monthlyCost = corpInt + imputed + mtgPay + propTax;
-
-    // 매수 시점의 생활 현금흐름 (시터비·지원금 반영, 기존 전세이자는 사라짐)
-    var sitter = 160, support = 100 + 10;
-    var jeonseInt = D.expenses.find(function (e) { return e.linkedTo === 'loan-jeonse'; }).monthly;
-    var baseOut = m.exp - jeonseInt + sitter;
-    var free = m.inc + support - baseOut - monthlyCost;
-
-    var dsrAnnual = (corp * 0.015 + mtgPay * 12) ;
-    var dsr = dsrAnnual / m.annualIncome * 100;
-
-    return {
-      price: price, need: need, own: ownUsed, corp: corp, mortgage: mortgage,
-      leftoverCash: leftoverCash, monthlyCost: monthlyCost, free: free, dsr: dsr,
-      corpInt: corpInt, imputed: imputed, mtgPay: mtgPay, propTax: propTax,
-      feasible: eq.total + corpLimit + mortgage >= need, eq: eq
-    };
+  function simulate(price,m){
+    var A=D.assumptions, eq=equityAt(m);
+    var need=price*(1+A.acquisitionTaxRate/100);
+    var corpLimit=D.creditLines.find(function(c){return c.id==='corp-home';}).limit;
+    var own=Math.min(eq.total,need), rest=Math.max(0,need-own);
+    var corp=Math.min(corpLimit,rest), mortgage=Math.max(0,rest-corp);
+    var corpInt=corp*0.015/12;
+    var imputed=corp*Math.max(0,(A.imputedInterestBase-1.5)/100)*(A.marginalTaxRate/100)/12;
+    var r=A.mortgageRate/100/12, mtgPay=mortgage>0?mortgage*r/(1-Math.pow(1+r,-360)):0;
+    var propTax=price*(A.propertyTaxRate/100)/12;
+    var monthlyCost=corpInt+imputed+mtgPay+propTax;
+    var sitter=160, support=110;
+    var jeonseInt=D.expenses.find(function(e){return e.linkedTo==='loan-jeonse';}).monthly;
+    var free=m.inc+support-(m.exp-jeonseInt+sitter)-monthlyCost;
+    var dsr=(corp*0.015+mtgPay*12)/m.annualIncome*100;
+    return {price:price,need:need,own:own,corp:corp,mortgage:mortgage,
+      leftoverCash:Math.max(0,eq.total-need), monthlyCost:monthlyCost, free:free, dsr:dsr,
+      corpInt:corpInt, imputed:imputed, mtgPay:mtgPay, propTax:propTax, eq:eq};
   }
 
-  function verdictOf(s) {
-    if (s.free < 0)   return { t: '무리',  c: 'var(--clay)',  bg: 'rgba(196,97,76,.13)',  d: '월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.' };
-    if (s.dsr > D.assumptions.dsrLimit) return { t: '규제 초과', c: 'var(--clay)', bg: 'rgba(196,97,76,.13)', d: 'DSR 한도를 넘습니다. 대출이 그만큼 안 나올 가능성이 높습니다.' };
-    if (s.free < 100) return { t: '빠듯',  c: 'var(--brass)', bg: 'rgba(201,162,39,.11)', d: '유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.' };
-    if (s.free < 220) return { t: '적정',  c: 'var(--steel)', bg: 'rgba(91,140,184,.12)', d: '감당 가능하고 저축도 이어집니다. 예비비를 함께 확인하세요.' };
-    return              { t: '여유',  c: 'var(--jade)',  bg: 'rgba(78,158,127,.12)', d: '부담이 크지 않습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.' };
+  function verdictOf(s){
+    if(s.free<0) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.'};
+    if(s.dsr>D.assumptions.dsrLimit) return {t:'규제 초과',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'DSR 한도를 넘습니다. 대출이 그만큼 안 나올 가능성이 높습니다.'};
+    if(s.free<100) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',d:'유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.'};
+    if(s.free<220) return {t:'적정',c:'var(--steel)',bg:'rgba(91,140,184,.12)',d:'감당 가능하고 저축도 이어집니다. 예비비를 함께 확인하세요.'};
+    return {t:'여유',c:'var(--jade)',bg:'rgba(78,158,127,.12)',d:'부담이 크지 않습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.'};
   }
 
-  /* ── 렌더 ────────────────────────────────────────────── */
-  function renderTop(m) {
-    $('asOf').textContent = D.asOf + ' 기준';
-    $('nwV').textContent = eok(m.netWorth);
-    var s = $('nwS');
-    s.innerHTML = '자산 <b>' + eok(m.totalAssets) + '억</b>  −  부채 <i>' + eok(m.totalDebt) + '억</i>'
-      + (m.hasUnknown ? '  <span style="color:var(--brass)">· 주식 미반영</span>' : '');
+  /* ── 렌더 조각 ── */
+  function lineRow(label,tag,value,color,warnTag){
+    var r=el('div','ln');
+    var b=el('s'); b.style.background=color; r.appendChild(b);
+    r.appendChild(el('span','ln__n',label));
+    var t=el('span',warnTag?'ln__t warn':'ln__t',tag); r.appendChild(t);
+    var v=el('span','ln__v num',value); r.appendChild(v);
+    return r;
+  }
 
-    var stack = $('stack'), keys = $('keys');
-    stack.innerHTML = ''; keys.innerHTML = '';
-    Object.keys(CLS).forEach(function (k) {
-      var v = m.byClass[k] || 0;
-      if (!v) return;
-      var bar = el('i'); bar.style.width = (v / m.totalAssets * 100) + '%'; bar.style.background = CLS[k].color;
-      stack.appendChild(bar);
-      var key = el('span', 'key');
-      var sw = el('s'); sw.style.background = CLS[k].color;
-      key.appendChild(sw);
-      key.appendChild(document.createTextNode(CLS[k].label + ' '));
-      key.appendChild(el('em', null, eok(v) + '억'));
-      keys.appendChild(key);
+  function renderView(key,mountId){
+    var v=D.views&&D.views[key]; var box=$(mountId);
+    box.innerHTML='';
+    if(!v){ box.appendChild(el('p','note','판단 기록 없음')); return; }
+    box.appendChild(el('h3','view__h',v.headline));
+    v.points.forEach(function(p){
+      var r=el('div','pt pt--'+(p.tone||'info'));
+      r.appendChild(el('s'));
+      r.appendChild(el('span',null,p.t));
+      box.appendChild(r);
     });
+  }
 
-    var strip = $('strip');
-    strip.innerHTML = '';
-    [
-      ['월 순유입', n(m.inc - m.exp) + '만', '수입 ' + n(m.inc) + ' − 지출 ' + n(m.exp)],
-      ['저축률', Math.round(m.sav / m.inc * 100) + '%', '월 ' + n(m.sav) + '만 적립'],
-      ['연 소득', eok1(m.annualIncome) + '억', '보너스 ' + n(m.bonus) + ' 포함'],
-      ['부채비율', Math.round(m.totalDebt / m.totalAssets * 100) + '%', '부채 ' + eok(m.totalDebt) + '억']
-    ].forEach(function (row) {
-      var d = el('div', 'met');
-      d.appendChild(el('div', 'met__k', row[0]));
-      d.appendChild(el('div', 'met__v num', row[1]));
-      d.appendChild(el('div', 'met__s', row[2]));
+  function renderTop(m){
+    $('asOf').textContent=D.asOf+' 기준';
+    $('nwV').textContent=eok(m.netWorth);
+    $('nwS').innerHTML='자산 <b>'+eok(m.totalAssets)+'억</b>  −  부채 <i>'+eok(m.totalDebt)+'억</i>'
+      +(m.hasUnknown?'  <span style="color:var(--brass)">· 주식 미반영</span>':'');
+    var stack=$('stack'), keys=$('keys'); stack.innerHTML=''; keys.innerHTML='';
+    Object.keys(CLS).forEach(function(k){
+      var v=m.byClass[k]||0; if(!v) return;
+      var bar=el('i'); bar.style.width=(v/m.totalAssets*100)+'%'; bar.style.background=CLS[k].color; stack.appendChild(bar);
+      var key=el('span','key'); var sw=el('s'); sw.style.background=CLS[k].color;
+      key.appendChild(sw); key.appendChild(document.createTextNode(CLS[k].label+' '));
+      key.appendChild(el('em',null,eok(v)+'억')); keys.appendChild(key);
+    });
+    var strip=$('strip'); strip.innerHTML='';
+    [['월 순유입',n(m.inc-m.exp)+'만','수입 '+n(m.inc)+' − 지출 '+n(m.exp)],
+     ['저축률',Math.round(m.sav/m.inc*100)+'%','월 '+n(m.sav)+'만 적립'],
+     ['연 소득',eok1(m.annualIncome)+'억','보너스 '+n(m.bonus)+' 포함'],
+     ['부채비율',Math.round(m.totalDebt/m.totalAssets*100)+'%','부채 '+eok(m.totalDebt)+'억']
+    ].forEach(function(row){
+      var d=el('div','met');
+      d.appendChild(el('div','met__k',row[0]));
+      d.appendChild(el('div','met__v num',row[1]));
+      d.appendChild(el('div','met__s',row[2]));
       strip.appendChild(d);
     });
   }
 
-  function renderLines(m) {
-    var box = $('lines');
-    box.innerHTML = '';
-    m.assets.forEach(function (a) {
-      var r = el('div', 'ln');
-      var bar = el('s'); bar.style.background = CLS[a.class].color; r.appendChild(bar);
-      r.appendChild(el('span', 'ln__n', a.label));
-      var tag = a.liquidity === 'locked' ? '묶임' : (a.unknown && a.value == null ? '미파악' : CLS[a.class].label);
-      var t = el('span', 'ln__t', tag);
-      if (a.unknown && a.value == null) t.className = 'ln__t warn';
-      r.appendChild(t);
-      r.appendChild(el('span', 'ln__v num', a.value == null ? '—' : n(a.value)));
-      box.appendChild(r);
+  function renderTabs(m){
+    var bar=$('tabs'); bar.innerHTML='';
+    TABS.forEach(function(t){
+      var b=el('button','tab'+(t.id==='overview'?' on':''));
+      b.setAttribute('data-tab',t.id);
+      var s=el('s'); s.style.background=t.color; b.appendChild(s);
+      b.appendChild(document.createTextNode(t.label));
+      if(t.id!=='overview'){
+        var v=m.byClass[t.id];
+        b.appendChild(el('span','tab__v',v?eok1(v)+'억':'—'));
+      }
+      b.addEventListener('click',function(){
+        document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
+        b.classList.add('on');
+        document.querySelectorAll('.pane').forEach(function(p){
+          p.classList.toggle('on',p.getAttribute('data-pane')===t.id);
+        });
+      });
+      bar.appendChild(b);
     });
-    D.liabilities.forEach(function (l) {
-      var r = el('div', 'ln');
-      var bar = el('s'); bar.style.background = 'var(--clay)'; r.appendChild(bar);
-      r.appendChild(el('span', 'ln__n', l.label));
-      r.appendChild(el('span', 'ln__t', l.rate + '%'));
-      var v = el('span', 'ln__v num', '−' + n(l.balance)); v.style.color = 'var(--clay)';
-      r.appendChild(v);
-      box.appendChild(r);
-    });
-    var tot = el('div', 'ln ln--tot');
-    tot.appendChild(el('s'));
-    tot.appendChild(el('span', 'ln__n', '순자산'));
-    tot.appendChild(el('span', 'ln__t', ''));
-    var tv = el('span', 'ln__v num', n(m.netWorth)); tv.style.color = 'var(--brass)';
-    tot.appendChild(tv);
-    box.appendChild(tot);
   }
 
-  function renderSim(m) {
-    var price = +$('pSlider').value;
-    var s = simulate(price, m);
-    $('pV').textContent = eok1(price);
-    $('pCap').textContent = '취득세 포함 ' + eok1(s.need) + '억 필요';
+  function renderLists(m){
+    var all=$('allLines'); all.innerHTML='';
+    m.assets.forEach(function(a){
+      all.appendChild(lineRow(a.label,
+        a.liquidity==='locked'?'묶임':(a.unknown&&a.value==null?'미파악':CLS[a.class].label),
+        a.value==null?'—':n(a.value), CLS[a.class].color, a.unknown&&a.value==null));
+    });
+    D.liabilities.forEach(function(l){
+      var r=lineRow(l.label,l.rate+'%','−'+n(l.balance),'var(--clay)');
+      r.querySelector('.ln__v').style.color='var(--clay)'; all.appendChild(r);
+    });
+    var tot=el('div','ln ln--tot'); tot.appendChild(el('s'));
+    tot.appendChild(el('span','ln__n','순자산')); tot.appendChild(el('span','ln__t',''));
+    var tv=el('span','ln__v num',n(m.netWorth)); tv.style.color='var(--brass)'; tot.appendChild(tv);
+    all.appendChild(tot);
 
-    var fund = $('fund'), fk = $('fundKeys');
-    fund.innerHTML = ''; fk.innerHTML = '';
-    [['자기자본', s.own, 'var(--jade)'], ['회사대출 1.5%', s.corp, 'var(--brass)'], ['주담대 ' + D.assumptions.mortgageRate + '%', s.mortgage, 'var(--clay)']]
-      .forEach(function (p) {
-        if (p[1] <= 0) return;
-        var w = p[1] / s.need * 100;
-        var i = el('i', null, w > 16 ? eok1(p[1]) + '억' : '');
-        i.style.width = w + '%'; i.style.background = p[2];
-        fund.appendChild(i);
-        var k = el('span', 'key');
-        var sw = el('s'); sw.style.background = p[2]; k.appendChild(sw);
-        k.appendChild(document.createTextNode(p[0] + ' '));
-        k.appendChild(el('em', null, eok1(p[1]) + '억'));
-        fk.appendChild(k);
+    // 클래스별
+    [['realestate','reLines'],['equity','eqLines'],['cash','cashLines'],['pension','penLines']].forEach(function(pair){
+      var box=$(pair[1]); box.innerHTML='';
+      var rows=m.assets.filter(function(a){return a.class===pair[0];});
+      if(!rows.length){ box.appendChild(el('div','empty','항목 없음')); }
+      rows.forEach(function(a){
+        var tag=a.monthlyAdd?('월 +'+n(a.monthlyAdd)):(a.liquidity==='locked'?'묶임':'');
+        box.appendChild(lineRow(a.label,tag,a.value==null?'—':n(a.value),CLS[a.class].color,a.unknown&&a.value==null));
       });
-
-    var out = $('out');
-    out.innerHTML = '';
-    [
-      ['월 주거비용', n(s.monthlyCost) + '만', null],
-      ['상환 후 월 여유', n(s.free) + '만', s.free < 0 ? 'var(--clay)' : (s.free < 100 ? 'var(--brass)' : 'var(--jade)')],
-      ['DSR', s.dsr.toFixed(0) + '%', s.dsr > D.assumptions.dsrLimit ? 'var(--clay)' : null],
-      ['매수 후 여유현금', n(s.leftoverCash) + '만', s.leftoverCash < 2000 ? 'var(--brass)' : null]
-    ].forEach(function (row) {
-      var d = el('div');
-      d.appendChild(el('div', 'out__k', row[0]));
-      var v = el('div', 'out__v num', row[1]);
-      if (row[2]) v.style.color = row[2];
-      d.appendChild(v);
-      out.appendChild(d);
+      if(pair[0]==='realestate'){
+        D.liabilities.forEach(function(l){
+          var r=lineRow(l.label,l.rate+'% · '+l.lender,'−'+n(l.balance),'var(--clay)');
+          r.querySelector('.ln__v').style.color='var(--clay)'; box.appendChild(r);
+        });
+        var net=el('div','ln ln--tot'); net.appendChild(el('s'));
+        net.appendChild(el('span','ln__n','순 부동산자산')); net.appendChild(el('span','ln__t',''));
+        var v=el('span','ln__v num',n((m.byClass.realestate||0)-m.totalDebt)); v.style.color='var(--jade)';
+        net.appendChild(v); box.appendChild(net);
+      }
+      if(rows.length>1){
+        var t=el('div','ln ln--tot'); t.appendChild(el('s'));
+        t.appendChild(el('span','ln__n','합계')); t.appendChild(el('span','ln__t',''));
+        t.appendChild(el('span','ln__v num',m.byClass[pair[0]]?n(m.byClass[pair[0]]):'—'));
+        if(pair[0]!=='realestate') box.appendChild(t);
+      }
     });
 
-    var vd = verdictOf(s), box = $('verdict');
-    box.innerHTML = '';
-    box.style.background = vd.bg;
-    var b = el('b', null, vd.t); b.style.background = vd.c; b.style.color = '#0B0D10';
-    box.appendChild(b);
-    box.appendChild(el('span', null, vd.d));
+    var pen=m.assets.find(function(a){return a.class==='pension';});
+    $('penNote').innerHTML='회사 납입 <b>월 '+n(pen.monthlyAdd)+'만원 (연 '+n(pen.monthlyAdd*12)
+      +'만원)</b>. 매수 가용자금 계산에서는 제외되지만 노후 자산으로는 계속 쌓인다.';
+  }
 
-    $('simNote').innerHTML =
-      '<b>가용 자기자본 ' + eok1(s.eq.total) + '억</b> = 순전세 ' + eok1(s.eq.jeonseNet) + ' + 현금 ' + eok1(s.eq.cash)
-      + ' + 주식 ' + eok1(s.eq.stock) + ' + 적립 ' + eok1(s.eq.accrue) + ' + 보너스 ' + eok1(s.eq.bonus) + ' (억)<br>'
-      + '월 주거비용 내역: 회사대출 이자 ' + n(s.corpInt) + ' + 간주이자 세금 ' + n(s.imputed)
-      + ' + 주담대 원리금 ' + n(s.mtgPay) + ' + 보유세 ' + n(s.propTax) + ' (만원)<br>'
-      + '월 여유는 <b>시터비 160만·부모급여 110만을 반영한 2027년 5월 기준</b>입니다. 연금저축은 매수 자금에서 제외했습니다.';
-
+  function renderSim(m){
+    var s=simulate(+$('pSlider').value,m);
+    $('pV').textContent=eok1(s.price);
+    $('pCap').textContent='취득세 포함 '+eok1(s.need)+'억 필요';
+    var fund=$('fund'), fk=$('fundKeys'); fund.innerHTML=''; fk.innerHTML='';
+    [['자기자본',s.own,'var(--jade)'],['회사대출 1.5%',s.corp,'var(--brass)'],
+     ['주담대 '+D.assumptions.mortgageRate+'%',s.mortgage,'var(--clay)']].forEach(function(p){
+      if(p[1]<=0) return;
+      var w=p[1]/s.need*100;
+      var i=el('i',null,w>16?eok1(p[1])+'억':''); i.style.width=w+'%'; i.style.background=p[2]; fund.appendChild(i);
+      var k=el('span','key'); var sw=el('s'); sw.style.background=p[2]; k.appendChild(sw);
+      k.appendChild(document.createTextNode(p[0]+' ')); k.appendChild(el('em',null,eok1(p[1])+'억')); fk.appendChild(k);
+    });
+    var out=$('out'); out.innerHTML='';
+    [['월 주거비용',n(s.monthlyCost)+'만',null],
+     ['상환 후 월 여유',n(s.free)+'만',s.free<0?'var(--clay)':(s.free<100?'var(--brass)':'var(--jade)')],
+     ['DSR',s.dsr.toFixed(0)+'%',s.dsr>D.assumptions.dsrLimit?'var(--clay)':null],
+     ['매수 후 여유현금',n(s.leftoverCash)+'만',s.leftoverCash<2000?'var(--brass)':null]
+    ].forEach(function(row){
+      var d=el('div'); d.appendChild(el('div','out__k',row[0]));
+      var v=el('div','out__v num',row[1]); if(row[2])v.style.color=row[2]; d.appendChild(v); out.appendChild(d);
+    });
+    var vd=verdictOf(s), box=$('verdict'); box.innerHTML=''; box.style.background=vd.bg;
+    var b=el('b',null,vd.t); b.style.background=vd.c; b.style.color='#0B0D10';
+    box.appendChild(b); box.appendChild(el('span',null,vd.d));
+    $('simNote').innerHTML='<b>가용 자기자본 '+eok1(s.eq.total)+'억</b> = 순전세 '+eok1(s.eq.jeonseNet)
+      +' + 현금 '+eok1(s.eq.cash)+' + 주식 '+eok1(s.eq.stock)+' + 적립 '+eok1(s.eq.accrue)
+      +' + 보너스 '+eok1(s.eq.bonus)+' (억)<br>월 주거비용: 회사대출 이자 '+n(s.corpInt)
+      +' + 간주이자 세금 '+n(s.imputed)+' + 주담대 원리금 '+n(s.mtgPay)+' + 보유세 '+n(s.propTax)+' (만원)<br>'
+      +'월 여유는 <b>시터비 160만·부모급여 110만을 반영한 2027-05 기준</b>. 연금저축은 제외.';
     return s;
   }
 
-  /* 15년 순자산 투영 — 전세 유지 vs 매수 */
-  function project(m, s) {
-    var A = D.assumptions, YEARS = 15;
-    var invR = A.investReturn / 100, homeR = A.homeAppreciation / 100;
-    var annualSave = m.sav * 12 + m.bonus;
-
-    var rent = [], buy = [];
-    // 전세 유지: 보증금 유지(2년마다 인상분은 대출로), 나머지는 투자로 축적
-    var rDeposit = m.assets.find(function (a) { return a.id === 'jeonse'; }).value;
-    var rDebt = m.totalDebt, rInvest = s.eq.cash + s.eq.stock;
-    // 매수: 집값 성장, 대출 상환은 원리금에서 원금분만 단순 반영
-    var bHome = s.price, bDebt = s.corp + s.mortgage, bInvest = s.leftoverCash;
-    var buyAnnualSave = Math.max(0, s.free) * 12 + m.bonus;
-
-    for (var y = 0; y <= YEARS; y++) {
-      rent.push(rDeposit - rDebt + rInvest);
-      buy.push(bHome - bDebt + bInvest);
-      if (y === YEARS) break;
-      // 전세
-      rInvest = rInvest * (1 + invR) + annualSave;
-      if (y % 2 === 1) { var hike = rDeposit * A.jeonseHikeRate / 100; rDeposit += hike; rDebt += hike; }
-      // 매수
-      bHome *= (1 + homeR);
-      var principal = Math.min(bDebt, Math.max(0, buyAnnualSave * 0.45));
-      bDebt -= principal;
-      bInvest = bInvest * (1 + invR) + Math.max(0, buyAnnualSave - principal);
+  function project(m,s){
+    var A=D.assumptions, Y=15, invR=A.investReturn/100, homeR=A.homeAppreciation/100;
+    var annualSave=m.sav*12+m.bonus;
+    var rD=m.assets.find(function(a){return a.id==='jeonse';}).value, rDebt=m.totalDebt;
+    var rInv=s.eq.cash+s.eq.stock;
+    var bHome=s.price, bDebt=s.corp+s.mortgage, bInv=s.leftoverCash;
+    var bSave=Math.max(0,s.free)*12+m.bonus;
+    var rent=[], buy=[];
+    for(var y=0;y<=Y;y++){
+      rent.push(rD-rDebt+rInv); buy.push(bHome-bDebt+bInv);
+      if(y===Y) break;
+      rInv=rInv*(1+invR)+annualSave;
+      if(y%2===1){ var h=rD*A.jeonseHikeRate/100; rD+=h; rDebt+=h; }
+      bHome*=(1+homeR);
+      var pr=Math.min(bDebt,Math.max(0,bSave*0.45)); bDebt-=pr;
+      bInv=bInv*(1+invR)+Math.max(0,bSave-pr);
     }
-    return { rent: rent, buy: buy, years: YEARS };
+    return {rent:rent,buy:buy,years:Y};
   }
 
-  function renderChart(m, s) {
-    var p = project(m, s), svg = $('proj');
-    var W = 660, H = 260, L = 46, R = 12, T = 16, B = 32;
-    var all = p.rent.concat(p.buy);
-    var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
-    lo = Math.min(0, lo); hi = hi * 1.06;
-    var x = function (i) { return L + i / p.years * (W - L - R); };
-    var y = function (v) { return T + (1 - (v - lo) / (hi - lo)) * (H - T - B); };
-    var NS = 'http://www.w3.org/2000/svg';
-    function mk(t, a) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); return e; }
-
-    svg.innerHTML = '';
-    var step = Math.pow(10, String(Math.round(hi / 4)).length - 1) * (hi / 4 > 5 * Math.pow(10, String(Math.round(hi / 4)).length - 1) ? 5 : 2);
-    for (var g = 0; g <= hi; g += step) {
-      svg.appendChild(mk('line', { x1: L, y1: y(g), x2: W - R, y2: y(g), stroke: 'var(--line-2)' }));
-      var t = mk('text', { x: L - 7, y: y(g) + 3.5, 'text-anchor': 'end', class: 'glabel' });
-      t.textContent = (g / 10000).toFixed(0) + '억'; svg.appendChild(t);
+  function renderChart(m,s){
+    var p=project(m,s), svg=$('proj');
+    var W=660,H=250,L=46,R=12,T=14,B=30;
+    var all=p.rent.concat(p.buy);
+    var lo=Math.min(0,Math.min.apply(null,all)), hi=Math.max.apply(null,all)*1.06;
+    var x=function(i){return L+i/p.years*(W-L-R);};
+    var y=function(v){return T+(1-(v-lo)/(hi-lo))*(H-T-B);};
+    var NS='http://www.w3.org/2000/svg';
+    function mk(t,a){var e=document.createElementNS(NS,t); for(var k in a)e.setAttribute(k,a[k]); return e;}
+    svg.innerHTML='';
+    var step=Math.max(50000,Math.ceil(hi/4/50000)*50000);
+    for(var g=0;g<=hi;g+=step){
+      svg.appendChild(mk('line',{x1:L,y1:y(g),x2:W-R,y2:y(g),stroke:'var(--line-2)'}));
+      var t=mk('text',{x:L-7,y:y(g)+3.5,'text-anchor':'end',class:'glabel'});
+      t.textContent=(g/10000).toFixed(0)+'억'; svg.appendChild(t);
     }
-    [0, 5, 10, 15].forEach(function (i) {
-      var t = mk('text', { x: x(i), y: H - 12, 'text-anchor': 'middle', class: 'glabel' });
-      t.textContent = (2026 + i) + (i ? '' : '');
-      svg.appendChild(t);
+    [0,5,10,15].forEach(function(i){
+      var t=mk('text',{x:x(i),y:H-10,'text-anchor':'middle',class:'glabel'});
+      t.textContent=String(2026+i); svg.appendChild(t);
     });
-
-    function line(arr, color, dash) {
-      var d = arr.map(function (v, i) { return (i ? 'L' : 'M') + x(i) + ' ' + y(v); }).join(' ');
-      svg.appendChild(mk('path', { d: d, fill: 'none', stroke: color, 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'stroke-dasharray': dash || '' }));
-      svg.appendChild(mk('circle', { cx: x(arr.length - 1), cy: y(arr[arr.length - 1]), r: 3.5, fill: color }));
+    function line(arr,color,dash){
+      var d=arr.map(function(v,i){return (i?'L':'M')+x(i)+' '+y(v);}).join(' ');
+      svg.appendChild(mk('path',{d:d,fill:'none',stroke:color,'stroke-width':2.2,'stroke-linejoin':'round','stroke-dasharray':dash||''}));
+      svg.appendChild(mk('circle',{cx:x(arr.length-1),cy:y(arr[arr.length-1]),r:3.5,fill:color}));
     }
-    line(p.rent, 'var(--steel)', '5 4');
-    line(p.buy, 'var(--brass)');
-
-    var keys = $('projKeys');
-    keys.innerHTML = '';
-    [['전세 유지', 'var(--steel)', p.rent[p.years]], ['매수 ' + eok1(s.price) + '억', 'var(--brass)', p.buy[p.years]]]
-      .forEach(function (row) {
-        var k = el('span', 'key');
-        var sw = el('s'); sw.style.background = row[1]; k.appendChild(sw);
-        k.appendChild(document.createTextNode(row[0] + ' → 15년 후 '));
-        k.appendChild(el('em', null, eok1(row[2]) + '억'));
-        keys.appendChild(k);
+    line(p.rent,'var(--steel)','5 4'); line(p.buy,'var(--brass)');
+    var keys=$('projKeys'); keys.innerHTML='';
+    [['전세 유지','var(--steel)',p.rent[p.years]],['매수 '+eok1(s.price)+'억','var(--brass)',p.buy[p.years]]]
+      .forEach(function(row){
+        var k=el('span','key'); var sw=el('s'); sw.style.background=row[1]; k.appendChild(sw);
+        k.appendChild(document.createTextNode(row[0]+' → 15년 후 '));
+        k.appendChild(el('em',null,eok1(row[2])+'억')); keys.appendChild(k);
       });
-
-    var diff = p.buy[p.years] - p.rent[p.years];
-    $('projNote').innerHTML =
-      '집값 연 <b>' + D.assumptions.homeAppreciation + '%</b> · 투자수익 연 <b>' + D.assumptions.investReturn + '%</b> · 전세 2년마다 <b>'
-      + D.assumptions.jeonseHikeRate + '%</b> 인상 가정. 이 가정에서 15년 후 격차는 <b>'
-      + (diff >= 0 ? '매수가 ' + eok1(Math.abs(diff)) + '억 유리' : '전세가 ' + eok1(Math.abs(diff)) + '억 유리')
-      + '</b>합니다. 집값 상승률이 결과를 지배하므로, 이 숫자는 예측이 아니라 <b>가정의 결과</b>로 읽어야 합니다.';
+    var diff=p.buy[p.years]-p.rent[p.years];
+    $('projNote').innerHTML='집값 연 <b>'+D.assumptions.homeAppreciation+'%</b> · 투자수익 연 <b>'
+      +D.assumptions.investReturn+'%</b> · 전세 2년마다 <b>'+D.assumptions.jeonseHikeRate
+      +'%</b> 인상 가정. 15년 후 격차는 <b>'
+      +(diff>=0?'매수가 '+eok1(Math.abs(diff))+'억 유리':'전세가 '+eok1(Math.abs(diff))+'억 유리')
+      +'</b>. 집값 상승률이 결과를 지배하므로 예측이 아니라 <b>가정의 결과</b>로 읽을 것.';
   }
 
-  function renderAll() {
-    var m = derive();
-    renderTop(m);
-    renderLines(m);
-    var s = renderSim(m);
-    renderChart(m, s);
-    $('stamp').textContent = D.updatedAt ? '갱신 ' + D.updatedAt.slice(0, 10) : '';
+  function renderAll(){
+    var m=derive();
+    renderTop(m); renderTabs(m); renderLists(m);
+    ['realestate','equity','cash','pension'].forEach(function(k){
+      renderView(k,'v'+k.charAt(0).toUpperCase()+k.slice(1));
+    });
+    var s=renderSim(m); renderChart(m,s);
+    $('stamp').textContent=D.updatedAt?'갱신 '+D.updatedAt.slice(0,10):'';
   }
 
-  $('pSlider').addEventListener('input', function () {
-    var m = derive();
-    var s = renderSim(m);
-    renderChart(m, s);
-  });
-  $('stockIn').addEventListener('input', function () {
-    var v = parseFloat(this.value);
-    stockValue = isNaN(v) ? null : v;
-    renderAll();
+  $('pSlider').addEventListener('input',function(){ var m=derive(); renderChart(m,renderSim(m)); });
+  $('stockIn').addEventListener('input',function(){
+    var v=parseFloat(this.value); stockValue=isNaN(v)?null:v; renderAll();
   });
 
   fetch(API)
-    .then(function (r) { if (!r.ok) throw new Error('불러오기 실패 (' + r.status + ')'); return r.json(); })
-    .then(function (d) { D = d; renderAll(); })
-    .catch(function (e) {
+    .then(function(r){ if(!r.ok) throw new Error('불러오기 실패 ('+r.status+')'); return r.json(); })
+    .then(function(d){ D=d; renderAll(); })
+    .catch(function(e){
       document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
-        '<div style="padding:12px 14px;border-radius:8px;background:rgba(196,97,76,.13);color:var(--clay);font-family:var(--mono);font-size:12px;margin-bottom:12px">'
-        + e.message + '</div>');
+        '<div style="padding:12px 14px;border-radius:8px;background:rgba(196,97,76,.13);color:var(--clay);font-family:var(--mono);font-size:12px;margin-bottom:12px">'+e.message+'</div>');
     });
 })();
 </script>
