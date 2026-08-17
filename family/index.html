@@ -208,7 +208,11 @@
           <div><span class="sim__price" id="pV">–</span><span style="color:var(--faint);font-size:15px">억</span></div>
           <span class="sim__cap" id="pCap"></span>
         </div>
-        <input type="range" id="pSlider" min="60000" max="200000" step="1000" value="100000" aria-label="목표 매수가">
+        <input type="range" id="pSlider" min="60000" max="200000" step="1000" value="90000" aria-label="목표 매수가">
+        <div class="gap" style="border-top:none;padding:4px 0 10px">
+          <label for="cSlider">신용대출 <b id="cV" class="num">0</b>만원 — 담보와 무관하므로 얹을 수 있다</label>
+          <input type="range" id="cSlider" min="0" max="15000" step="500" value="0" style="flex-basis:100%" aria-label="신용대출 금액">
+        </div>
         <div class="fund" id="fund"></div>
         <div class="keys" id="fundKeys"></div>
         <div class="out" id="out"></div>
@@ -368,11 +372,18 @@
   }
 
   // 세 대출은 모두 1순위 근저당을 요구하므로 쌓이지 않는다. 하나만 고르는 것이다.
-  function trackAt(t,price,need,eq,m){
+  function amort(P,ratePct,years){
+    var i=ratePct/100/12; return P>0?P*i/(1-Math.pow(1+i,-years*12)):0;
+  }
+
+  function trackAt(t,price,need,eq,m,credit){
     var A=D.assumptions, gap=Math.max(0,need-eq.total);
     var cap=t.limit!=null?t.limit:price*(t.ltv/100);
     var loan=Math.min(cap,gap);
-    var short=gap-loan;                       // 대출로도 못 메우는 부족액
+    // 신용대출은 근저당과 무관해서 담보대출 위에 얹힌다. 대신 만기가 짧아 현금흐름을 세게 친다.
+    var cred=Math.min(credit,Math.max(0,gap-loan));
+    var credPay=amort(cred,A.creditLoanRate,A.creditLoanTerm);
+    var short=gap-loan-cred;                  // 대출로도 못 메우는 부족액
     var pay, imputed=0, dsrAnnual;
     if(t.repayment==='interest_only'){
       pay=loan*(t.rate/100)/12;
@@ -384,11 +395,11 @@
       pay=loan>0?loan*r/(1-Math.pow(1+r,-t.term*12)):0;
       dsrAnnual=pay*12;
     }
-    var monthlyCost=pay+imputed+price*(A.propertyTaxRate/100)/12;
+    var monthlyCost=pay+credPay+imputed+price*(A.propertyTaxRate/100)/12;
     var support=1100000;
     var jeonseInt=D.expenses.find(function(e){return e.linkedTo==='loan-jeonse';}).monthly;
     var free=m.inc+support-(m.exp-jeonseInt+A.sitterMonthly)-monthlyCost;
-    var dsr=t.dsrCount?dsrAnnual/m.annualIncome*100:0;
+    var dsr=((t.dsrCount?dsrAnnual:0)+credPay*12)/m.annualIncome*100;
 
     var blocked=null;
     if(short>0) blocked='자기자본 '+eok1(short)+'억 부족';
@@ -396,7 +407,7 @@
     else if(t.maxNetWorth&&m.netWorth>t.maxNetWorth) blocked='순자산 기준 초과';
     else if(dsr>A.dsrLimit) blocked='DSR '+dsr.toFixed(0)+'%';
 
-    return {t:t,loan:loan,short:short,pay:pay,imputed:imputed,
+    return {t:t,loan:loan,cred:cred,credPay:credPay,short:short,pay:pay,imputed:imputed,
             monthlyCost:monthlyCost,free:free,dsr:dsr,blocked:blocked};
   }
 
@@ -404,24 +415,42 @@
     var A=D.assumptions, eq=equityAt(m);
     var need=price*(1+A.acquisitionTaxRate/100);
     var own=Math.min(eq.total,need);
-    var tracks=D.loanTracks.map(function(t){return trackAt(t,price,need,eq,m);});
+    var credit=+$('cSlider').value*1e4;
+    var tracks=D.loanTracks.map(function(t){return trackAt(t,price,need,eq,m,credit);});
     var ok=tracks.filter(function(x){return !x.blocked;});
     // 쓸 수 있는 것 중 월 부담이 가장 가벼운 트랙이 사실상의 기준선이다
     var best=ok.sort(function(a,b){return a.monthlyCost-b.monthlyCost;})[0]||null;
-    return {price:price,need:need,own:own,gap:Math.max(0,need-eq.total),
+    return {price:price,need:need,own:own,credit:credit,gap:Math.max(0,need-eq.total),
       leftoverCash:Math.max(0,eq.total-need),tracks:tracks,best:best,
       monthlyCost:best?best.monthlyCost:0,free:best?best.free:0,
       dsr:best?best.dsr:0,eq:eq};
   }
 
-  function verdictOf(s){
+  // 적립을 유지할 수 있는 최대 매수가. 상한과 적정선은 다르다.
+  function keepPrice(m,credit){
+    var eq=equityAt(m), lo=3e8, hi=2.5e9;
+    for(var k=0;k<40;k++){
+      var mid=(lo+hi)/2, need=mid*(1+D.assumptions.acquisitionTaxRate/100);
+      var ok=D.loanTracks.map(function(t){return trackAt(t,mid,need,eq,m,credit);})
+                         .filter(function(x){return !x.blocked && x.free>=m.sav;});
+      if(ok.length) lo=mid; else hi=mid;
+    }
+    return lo;
+  }
+
+  // 판정 기준은 적립액이다 — 월 여유가 적립보다 적으면 그만큼 저축을 멈추는 것이다
+  function verdictOf(s,m){
     if(!s.best) return {t:'불가',c:'var(--clay)',bg:'rgba(196,97,76,.13)',
-      d:'이 가격에서 쓸 수 있는 대출이 없습니다. 세 대출 모두 1순위 근저당이라 쌓을 수 없으니, 자기자본을 늘리거나 가격을 낮춰야 합니다.'};
+      d:'이 가격에서 쓸 수 있는 조합이 없습니다. 담보대출은 1순위 근저당이라 하나뿐이니, 신용대출을 얹거나 가격을 낮춰야 합니다.'};
     if(s.free<0) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'월 현금흐름이 적자입니다. 저축이 아니라 자산을 헐어야 유지됩니다.'};
-    if(s.dsr>D.assumptions.dsrLimit) return {t:'규제 초과',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'DSR 한도를 넘습니다. 대출이 그만큼 안 나올 가능성이 높습니다.'};
-    if(s.free<1000000) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',d:'유지는 되지만 저축 여력이 거의 없습니다. 시터를 늘리거나 소득이 흔들리면 바로 적자입니다.'};
-    if(s.free<2200000) return {t:'적정',c:'var(--steel)',bg:'rgba(91,140,184,.12)',d:'감당 가능하고 저축도 이어집니다. 예비비를 함께 확인하세요.'};
-    return {t:'여유',c:'var(--jade)',bg:'rgba(78,158,127,.12)',d:'부담이 크지 않습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.'};
+    if(s.dsr>D.assumptions.dsrLimit) return {t:'규제 초과',c:'var(--clay)',bg:'rgba(196,97,76,.13)',d:'DSR 한도를 넘습니다. 대출이 그만큼 안 나옵니다.'};
+    if(s.free<m.sav*0.5) return {t:'무리',c:'var(--clay)',bg:'rgba(196,97,76,.13)',
+      d:'적립 '+man(m.sav)+'만원의 절반도 못 넣습니다. 집을 사는 대신 자산 축적을 멈추는 선택입니다.'};
+    if(s.free<m.sav) return {t:'빠듯',c:'var(--brass)',bg:'rgba(201,162,39,.11)',
+      d:'적립을 월 '+man(m.sav-s.free)+'만원 줄여야 유지됩니다. 시터를 늘리거나 보너스가 흔들리면 바로 적자입니다.'};
+    if(s.free<m.sav*1.4) return {t:'적정',c:'var(--steel)',bg:'rgba(91,140,184,.12)',
+      d:'적립 '+man(m.sav)+'만원을 유지하면서 감당됩니다. 예비비를 함께 확인하세요.'};
+    return {t:'여유',c:'var(--jade)',bg:'rgba(78,158,127,.12)',d:'적립을 유지하고도 여유가 남습니다. 더 나은 입지나 평형을 볼 여지가 있습니다.'};
   }
 
   function acctRow(a){
@@ -557,8 +586,13 @@
     var s=simulate(+$('pSlider').value*1e4,m);
     $('pV').textContent=eok1(s.price);
     $('pCap').textContent='취득세 포함 '+eok1(s.need)+'억 필요';
+    $('cV').textContent=man(s.credit);
     var fund=$('fund'), fk=$('fundKeys'); fund.innerHTML=''; fk.innerHTML='';
-    [['자기자본',s.own,'var(--jade)'],['대출로 메울 몫',s.gap,'var(--slate)']].forEach(function(p){
+    var B0=s.best;
+    var seg=B0?[['자기자본',s.own,'var(--jade)'],['담보대출',B0.loan,'var(--slate)'],
+                ['신용대출',B0.cred,'var(--clay)']]
+              :[['자기자본',s.own,'var(--jade)'],['대출로 메울 몫',s.gap,'var(--slate)']];
+    seg.forEach(function(p){
       if(p[1]<=0) return;
       var w=p[1]/s.need*100;
       var i=el('i',null,w>16?eok1(p[1])+'억':''); i.style.width=w+'%'; i.style.background=p[2]; fund.appendChild(i);
@@ -604,7 +638,7 @@
       r.appendChild(g); list.appendChild(r);
     });
 
-    var vd=verdictOf(s), box=$('verdict'); box.innerHTML=''; box.style.background=vd.bg;
+    var vd=verdictOf(s,m), box=$('verdict'); box.innerHTML=''; box.style.background=vd.bg;
     var b=el('b',null,vd.t); b.style.background=vd.c; b.style.color='#0B0D10';
     box.appendChild(b); box.appendChild(el('span',null,vd.d));
     $('simNote').innerHTML='<b>가용 자기자본 '+eok1(s.eq.total)+'억</b> = 순전세 '+eok1(s.eq.jeonseNet)
@@ -613,8 +647,12 @@
       +'용도가 확정된 금고(산후조리원·시터비용) <b>'+man(s.eq.reserved)+'만원</b>과 연금저축은 제외했다.<br>'
       +'<b>회사대출이 1순위 근저당 조건이라 세 대출은 서로 배타적이다.</b> 쌓아서 한도를 늘릴 수 없으므로 '
       +'<b>매수 상한 = 자기자본 + 대출 하나</b>다.<br>'
+      +'다만 <b>신용대출은 근저당과 무관해서 그 위에 얹을 수 있다</b>. 한도는 늘지만 만기 '
+      +D.assumptions.creditLoanTerm+'년에 '+D.assumptions.creditLoanRate+'%라 현금흐름을 가장 세게 친다.<br>'
       +'DSR은 셋 다 산입되며 한도는 '+D.assumptions.dsrLimit+'%다. 만기일시상환도 원금을 만기로 나눠 '
       +'산입하므로 <b>월 부담과 DSR이 따로 논다</b> — 회사대출이 만기 10년이면 DSR 44%로 걸린다.<br>'
+      +'<b>적립 '+man(m.sav)+'만원을 유지하며 살 수 있는 상한은 '+eok1(keepPrice(m,s.credit))+'억</b>이다. '
+      +'그 위로는 집을 사는 대신 저축을 멈추는 것이고, 화면의 "월 여유"는 적립을 빼기 전 숫자다.<br>'
       +'월 여유는 <b>시터비 '+man(D.assumptions.sitterMonthly)+'만·부모급여 110만을 반영한 2027-05 기준</b>이고, '
       +'아내 수입은 총 '+man(m.spGross)+'만 중 가계 반영분 <b>'+man(m.spIn)+'만</b>만 셌다.';
     return s;
@@ -774,7 +812,9 @@
     $('stamp').textContent=D.updatedAt?'갱신 '+D.updatedAt.slice(0,10):'';
   }
 
-  $('pSlider').addEventListener('input',function(){ var m=derive(); renderChart(m,renderSim(m)); });
+  ['pSlider','cSlider'].forEach(function(id){
+    $(id).addEventListener('input',function(){ var m=derive(); renderChart(m,renderSim(m)); });
+  });
 
   fetch(API)
     .then(function(r){ if(!r.ok) throw new Error('불러오기 실패 ('+r.status+')'); return r.json(); })
