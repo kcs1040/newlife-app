@@ -221,7 +221,8 @@
     </section>
     <section class="panel">
       <div class="hd"><span class="hd__t">매수 여력</span><span class="hd__n">2027-05 기준 · 대출 택일</span></div>
-      <div class="sim">
+      <div id="simWait" style="display:none"></div>
+      <div class="sim" id="simBody">
         <div class="sim__row">
           <div><span class="sim__price" id="pV">–</span><span style="color:var(--faint);font-size:15px">억</span></div>
           <span class="sim__cap" id="pCap"></span>
@@ -360,20 +361,19 @@
 
   // 월 기준값. 실적이 WINDOW개월 이상 쌓이면 그 평균이 기준이 되고,
   // 그 전까지만 초기 추정치를 쓴다 — 추정치는 발판이지 잣대가 아니다.
+  // 지출·적립은 실적에서만 나온다. 추정치는 계산에 쓰지 않는다.
+  // window는 '지금 여력을 계산할 때 볼 최근 구간'이지 저장 범위가 아니다 — months는 전부 남는다.
   function basis(){
     var CF=D.cashflow||{months:[]}, W=CF.window||3, ms=CF.months||[];
     var sp=D.income.spouse, spIn=sp.pooled!=null?sp.pooled:sp.monthly;
-    if(ms.length>=W){
-      var r=ms.slice(-W), avg=function(f){return r.reduce(function(s,x){return s+f(x);},0)/W;};
-      return {source:'actual', n:W, total:ms.length,
-        inc:avg(function(x){return (x.income&&x.income.salary||0)+(x.income&&x.income.spouse||0);}),
-        exp:avg(function(x){return sumOf(x.expenses);}),
-        sav:avg(function(x){return sumOf(x.savings);})};
-    }
-    return {source:'estimate', n:ms.length, total:ms.length,
-      inc:D.income.salary.monthly+spIn,
-      exp:D.expenses.reduce(function(s,e){return s+e.monthly;},0),
-      sav:D.savings.reduce(function(s,e){return s+e.monthly;},0)};
+    var known=D.income.salary.monthly+spIn;
+    if(!ms.length) return {ready:false, n:0, total:0, inc:known, exp:null, sav:null};
+    var n=Math.min(W,ms.length), r=ms.slice(-n);
+    var avg=function(f){return r.reduce(function(s,x){return s+f(x);},0)/n;};
+    return {ready:true, n:n, total:ms.length,
+      inc:avg(function(x){return (x.income&&x.income.salary||0)+(x.income&&x.income.spouse||0);}),
+      exp:avg(function(x){return sumOf(x.expenses);}),
+      sav:avg(function(x){return sumOf(x.savings);})};
   }
 
   function derive(){
@@ -381,12 +381,12 @@
     var sp=D.income.spouse, spIn=sp.pooled!=null?sp.pooled:sp.monthly;
     var B=basis();
     var inc=B.inc;
-    var exp=B.exp, sav=B.sav;
+    var exp=B.exp, sav=B.sav, ready=B.ready;
     var byClass={};
     D.accounts.forEach(function(a){ byClass[a.class]=(byClass[a.class]||0)+acctTotal(a); });
     var totalAssets=D.accounts.reduce(function(s,a){return s+acctTotal(a);},0);
     var totalDebt=D.liabilities.reduce(function(s,l){return s+l.balance;},0);
-    return {inc:inc,exp:exp,sav:sav,basis:B,bonus:D.income.bonus.annual,spGross:sp.monthly,spIn:spIn,
+    return {inc:inc,exp:exp,sav:sav,ready:ready,basis:B,bonus:D.income.bonus.annual,spGross:sp.monthly,spIn:spIn,
       annualIncome:inc*12+D.income.bonus.annual, byClass:byClass,
       totalAssets:totalAssets,totalDebt:totalDebt,netWorth:totalAssets-totalDebt};
   }
@@ -436,7 +436,7 @@
     }
     var monthlyCost=pay+credPay+imputed+price*(A.propertyTaxRate/100)/12;
     var support=1100000;
-    var jeonseInt=D.expenses.find(function(e){return e.linkedTo==='loan-jeonse';}).monthly;
+    var jeonseInt=D.liabilities.reduce(function(a,l){return a+l.balance*(l.rate/100)/12;},0);
     var free=m.inc+support-(m.exp-jeonseInt+A.sitterMonthly)-monthlyCost;
     var dsr=((t.dsrCount?dsrAnnual:0)+credPay*12)/m.annualIncome*100;
 
@@ -546,8 +546,10 @@
       key.appendChild(el('em',null,eok(v)+'억')); keys.appendChild(key);
     });
     var strip=$('strip'); strip.innerHTML='';
-    [['월 순유입',man(m.inc-m.exp)+'만','수입 '+man(m.inc)+' − 지출 '+man(m.exp)],
-     ['저축률',Math.round(m.sav/m.inc*100)+'%','월 '+man(m.sav)+'만 적립'],
+    [['월 순유입',m.ready?man(m.inc-m.exp)+'만':'—',
+        m.ready?'수입 '+man(m.inc)+' − 지출 '+man(m.exp):'실적 입력 후 계산'],
+     ['저축률',m.ready?Math.round(m.sav/m.inc*100)+'%':'—',
+        m.ready?'월 '+man(m.sav)+'만 적립':'8/22 첫 입력'],
      ['연 소득',eok1(m.annualIncome)+'억','보너스 '+man(m.bonus)+' 포함'],
      ['부채비율',Math.round(m.totalDebt/m.totalAssets*100)+'%','부채 '+eok(m.totalDebt)+'억']
     ].forEach(function(row){
@@ -622,6 +624,17 @@
   }
 
   function renderSim(m){
+    var wait=$('simWait'), simBox=$('simBody');
+    if(!m.ready){
+      wait.style.display='block'; simBox.style.display='none';
+      wait.innerHTML='<div class="empty" style="padding:26px 16px">'
+        +'매수 여력은 <b style="color:var(--brass)">실제 지출·적립</b>에서 계산된다.<br>'
+        +'<span style="color:var(--faint)">첫 실적을 넣으면(8/22) 바로 살아난다. '
+        +'추정치로 미리 채워두지 않는 게 맞다.</span></div>';
+      $('trackList').innerHTML=''; $('simNote').innerHTML='';
+      return null;
+    }
+    wait.style.display='none'; simBox.style.display='block';
     var s=simulate(+$('pSlider').value*1e4,m);
     $('pV').textContent=eok1(s.price);
     $('pCap').textContent='취득세 포함 '+eok1(s.need)+'억 필요';
@@ -720,6 +733,8 @@
   }
 
   function renderChart(m,s){
+    if(!s){ $('proj').innerHTML=''; $('projKeys').innerHTML='';
+      $('projNote').innerHTML='실적이 들어오면 전세 유지와 매수의 15년 격차를 그린다.'; return; }
     var p=project(m,s), svg=$('proj');
     var W=660,H=250,L=48,R=12,T=14,B=30;
     var all=p.rent.concat(p.buy);
@@ -842,14 +857,6 @@
     });
   }
 
-  // 계획 기준선은 income/expenses/savings에서 파생시킨다 — 손으로 적어두면 갈라진다
-  function planOf(m){
-    var fixed=D.expenses.filter(function(e){return e.kind==='fixed';})
-                        .reduce(function(s,e){return s+e.monthly;},0);
-    return {income:m.inc,fixed:fixed,variable:m.exp-fixed,saved:m.sav,
-            left:m.inc-m.exp-m.sav};
-  }
-
   function renderCashflow(m){
     var CF=D.cashflow||{months:[]}, ms=CF.months||[], W=CF.window||3;
     $('cfCount').textContent=ms.length?ms.length+'개월':'기록 없음';
@@ -927,19 +934,24 @@
 
     // 기준값 — 시뮬레이터와 저축률이 무엇을 근거로 계산되는지 밝힌다
     var B=m.basis, bb=$('cfBasis'); bb.innerHTML='';
-    $('cfBasisTag').textContent=B.source==='actual'?'최근 '+B.n+'개월 실적 평균':'초기 추정치';
+    $('cfBasisTag').textContent=B.ready?'최근 '+B.n+'개월 평균':'대기 중';
+    if(!B.ready){
+      bb.appendChild(el('div','empty','실적이 없어 계산하지 않는다.'));
+      $('cfBasisNote').innerHTML='지출·적립 <b>추정치는 계산에서 완전히 빠졌다</b>. '
+        +'대화에서 받아적은 값은 <code>initialNotes</code>에 기록으로만 남아 있고 어떤 숫자도 거기서 나오지 않는다.<br>'
+        +'수입(급여 '+man(D.income.salary.monthly)+'만 + 아내 반영분 '+man(m.spIn)+'만)은 아는 값이라 유지한다. '
+        +'모르는 건 지출과 적립뿐이고, 그건 8/22에 채워진다.';
+      return;
+    }
     [['월 수입',B.inc],['월 지출',B.exp],['월 적립',B.sav],['남는 돈',B.inc-B.exp-B.sav]].forEach(function(r,i){
       var x=el('div','ln'); var sw=el('s');
       sw.style.background=i===3?'var(--brass)':'var(--slate)'; x.appendChild(sw);
       x.appendChild(el('span','ln__n',r[0]));
       x.appendChild(el('span','ln__v num',man(r[1]))); bb.appendChild(x);
     });
-    $('cfBasisNote').innerHTML = B.source==='actual'
-      ? '최근 <b>'+B.n+'개월 실적 평균</b>을 쓰고 있다 (총 '+B.total+'개월 기록). '
-        +'매수 시뮬레이터의 월 여유와 저축률이 전부 이 숫자에서 나온다.'
-      : '아직 <b>초기 추정치</b>다 — 대화에서 받아적은 값이라 검증되지 않았다. '
-        +'실적이 <b>'+W+'개월</b> 쌓이면 그 평균이 자동으로 이 자리를 대신하고, '
-        +'그때부터 매수 여력과 저축률이 실제 삶에서 나온 숫자로 계산된다. 현재 '+B.total+'개월.';
+    $('cfBasisNote').innerHTML='<b>최근 '+B.n+'개월 평균</b>으로 계산 중 — 매수 여력과 저축률이 전부 여기서 나온다.<br>'
+      +'기록은 <b>'+B.total+'개월 전부 보존</b>된다. 3개월 평균은 "지금 이 순간의 여력"을 볼 때 쓰는 창이지 '
+      +'저장 범위가 아니다. 위 추이선은 첫 달부터 전부 그린다.';
   }
 
   function renderAll(){
