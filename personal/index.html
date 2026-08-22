@@ -19,7 +19,7 @@
     --warn-soft: #F1DCD7;
     --line: #D9D2C4;
     --h-gym: #4C7A5C;
-    --h-sleep: #A8722F;
+    --h-sleep: #A8722F; --h-stop: #4A6A8A;
     --h-dishes: #8A5A6D;
     --radius: 6px;
     --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
@@ -31,7 +31,7 @@
       --ink-faint: #7A7160; --accent: #D89A4E; --accent-soft: #3B2C18;
       --good: #7EB58F; --good-soft: #22322A; --warn: #E17163; --warn-soft: #3A241F;
       --line: #332B1F;
-      --h-gym: #7EB58F; --h-sleep: #D89A4E; --h-dishes: #C08FA0;
+      --h-gym: #7EB58F; --h-sleep: #D89A4E; --h-stop: #6D93B8; --h-dishes: #C08FA0;
     }
   }
   * { box-sizing: border-box; }
@@ -69,6 +69,7 @@
   .check.is-done .check__box svg { opacity: 1; }
   .check.is-done[data-habit="gym"] .check__box { background: var(--h-gym); }
   .check.is-done[data-habit="sleep"] .check__box { background: var(--h-sleep); }
+  .check.is-done[data-habit="stop"] .check__box { background: var(--h-stop); }
   .check.is-done[data-habit="dishes"] .check__box { background: var(--h-dishes); }
   .check.is-done .check__label { color: var(--ink-muted); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
   /* 안 함 — 기록 없음(빈 네모)과 반드시 달라 보여야 한다. 둘이 같으면 아무것도 못 읽는다. */
@@ -132,6 +133,7 @@
   .history__cell.is-today { box-shadow: 0 0 0 1.5px var(--accent); }
   .history__cell.is-done[data-h="gym"] { background: var(--h-gym); }
   .history__cell.is-done[data-h="sleep"] { background: var(--h-sleep); }
+  .history__cell.is-done[data-h="stop"] { background: var(--h-stop); }
   .history__cell.is-done[data-h="dishes"] { background: var(--h-dishes); }
   .history__range { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); padding: 0 16px 14px; text-align: right; }
 
@@ -162,6 +164,7 @@
   .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--line); }
   .cal-dot.on[data-h="gym"] { background: var(--h-gym); }
   .cal-dot.on[data-h="sleep"] { background: var(--h-sleep); }
+  .cal-dot.on[data-h="stop"] { background: var(--h-stop); }
   .cal-dot.on[data-h="dishes"] { background: var(--h-dishes); }
   .calendar__legend {
     display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 12px 16px 6px;
@@ -231,6 +234,9 @@
   var HABITS = [
     { key: 'gym',     label: '헬스',          short: '헬스',   meta: '주 2~3회', weekly: 'count', target: '목표 2~3회' },
     { key: 'sleep',   label: '11시 전 잠자리', short: '취침',   meta: '매일',     weekly: 'ratio', target: '11시 취침' },
+      // 2026-09 월간 목표. 취침 시각이 아니라 **멈추는 행위**를 잰다 —
+      // 9/20 이후엔 취침을 본인이 통제할 수 없지만 멈추는 건 정할 수 있다.
+      { key: 'stop',    label: '23시 작업 중단',  short: '중단',   meta: '매일',     weekly: 'ratio', target: '23시 중단' },
       // 2026-08-22: '저녁 설거지' 를 넓혔다. 설거지는 목표가 아니라 프록시였고
       // (habit-schema: "눈에 보이는 기여, 와이프 신뢰 회복의 핵심"), 와이프가 먼저 해버리거나
       // 늦게 퇴근해 기회가 없는 날이 실패로 잡혔다. 대신 **무엇이었는지를 반드시 남긴다** —
