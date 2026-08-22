@@ -78,6 +78,22 @@
   .check.is-miss .check__box .icon-x { opacity: 1; }
   .check.is-miss .check__label { color: var(--ink-faint); }
 
+  /* 기회 없음 — 안 함과 다르다. 못 한 날이 아니라 없던 날이다. */
+  .check.is-na .check__box { border-style: dotted; border-color: var(--ink-faint); background: none; }
+  .check.is-na .check__box .icon-x { opacity: 0; }
+  .check.is-na .check__box::after {
+    content: '–'; position: absolute; color: var(--ink-faint); font-size: 14px; line-height: 1;
+  }
+  .check.is-na .check__label { color: var(--ink-faint); }
+  .kinds { display: none; flex-wrap: wrap; gap: 6px; padding: 0 16px 13px; }
+  .kinds.on { display: flex; }
+  .kind {
+    padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line);
+    background: none; color: var(--ink-muted); font-family: inherit; font-size: 13px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .kind.on { background: var(--h-dishes); border-color: transparent; color: #fff; }
+
   .dayclose {
     display: block; width: 100%; margin-top: 10px; padding: 12px; border-radius: 10px;
     background: none; border: 1px dashed var(--line); color: var(--ink-muted);
@@ -207,7 +223,7 @@
       <div class="calendar__legend" id="calLegend"></div>
     </div>
   </section>
-  <p class="build">build 2026-08-22 · 3단계 체크 + 하루 마감</p>
+  <p class="build">build 2026-08-22 · 기여 항목 + 하루 마감</p>
 </div>
 
 <script>
@@ -215,7 +231,12 @@
   var HABITS = [
     { key: 'gym',     label: '헬스',          short: '헬스',   meta: '주 2~3회', weekly: 'count', target: '목표 2~3회' },
     { key: 'sleep',   label: '11시 전 잠자리', short: '취침',   meta: '매일',     weekly: 'ratio', target: '11시 취침' },
-      { key: 'dishes',  label: '저녁 설거지',    short: '설거지', meta: '매일',     weekly: 'ratio', target: '설거지' }
+      // 2026-08-22: '저녁 설거지' 를 넓혔다. 설거지는 목표가 아니라 프록시였고
+      // (habit-schema: "눈에 보이는 기여, 와이프 신뢰 회복의 핵심"), 와이프가 먼저 해버리거나
+      // 늦게 퇴근해 기회가 없는 날이 실패로 잡혔다. 대신 **무엇이었는지를 반드시 남긴다** —
+      // 항목만 넓히면 "뭐라도 했으니 체크"가 되어 측정이 죽는다.
+      { key: 'care', label: '와이프에게 보이는 기여', short: '기여', meta: '매일', weekly: 'ratio', target: '기여',
+        kinds: ['설거지','안마','청소','요리','장보기','기타'] }
   ];
   var API = '/.netlify/functions/checkin';
   var viewDate = new Date();
@@ -258,6 +279,20 @@
     btn.querySelector('.check__meta').textContent = h.meta;
     btn.addEventListener('click', function () { toggleHabit(h.key); });
     checkCard.appendChild(btn);
+
+    // 무엇이었는지 — '함' 일 때만 펼쳐진다. 안 고르면 '미지정'으로 남고 리포트에 그대로 보인다.
+    if (h.kinds) {
+      var row = document.createElement('div');
+      row.className = 'kinds';
+      row.setAttribute('data-kinds', h.key);
+      h.kinds.forEach(function (kd) {
+        var c = document.createElement('button');
+        c.className = 'kind'; c.setAttribute('data-kind', kd); c.textContent = kd;
+        c.addEventListener('click', function () { setKind(h.key, kd); });
+        row.appendChild(c);
+      });
+      checkCard.appendChild(row);
+    }
   });
 
   var statsGrid = document.getElementById('statsGrid');
@@ -299,6 +334,15 @@
       var v = dayData ? dayData[h.key] : undefined;
       btn.classList.toggle('is-done', v === true);
       btn.classList.toggle('is-miss', v === false);
+      btn.classList.toggle('is-na', v === 'na');
+      if (h.kinds) {
+        var row = document.querySelector('[data-kinds="' + h.key + '"]');
+        row.classList.toggle('on', v === true);
+        var cur = dayData ? dayData[h.key + '_what'] : null;
+        row.querySelectorAll('.kind').forEach(function (c) {
+          c.classList.toggle('on', c.getAttribute('data-kind') === cur);
+        });
+      }
     });
   }
 
@@ -323,12 +367,19 @@
   // 세 상태를 돈다: 기록 없음 → 함 → 안 함 → 기록 없음.
   // 예전에는 함/안함 두 상태였는데 '안 함'과 '기록 없음'이 화면에서 같아 보여서
   // 사실상 안 함을 남길 수단이 없었다 (2026-08-22).
-  function nextState(v) { return v === undefined ? true : (v === true ? false : null); }
+  function nextState(v, hasNa) {
+    if (v === undefined) return true;
+    if (v === true) return false;
+    if (v === false) return hasNa ? 'na' : null;   // 기회 없음 — 기여 항목에만 있다
+    return null;
+  }
+  function habitOf(k) { for (var i = 0; i < HABITS.length; i++) if (HABITS[i].key === k) return HABITS[i]; }
 
   function toggleHabit(habit) {
     var date = dstr(viewDate);
     var prev = cachedLog[date] ? cachedLog[date][habit] : undefined;
-    var next = nextState(prev);
+    var h = habitOf(habit);
+    var next = nextState(prev, !!(h && h.kinds));
 
     // Flip the UI first; the network write happens behind it.
     setLocal(date, habit, next);
@@ -353,6 +404,39 @@
         })
         .catch(function (err) {
           setLocal(date, habit, prev === undefined ? null : prev);
+          renderAll();
+          showStatus('저장 실패 — ' + err.message, 'err');
+        });
+    });
+  }
+
+  // 무엇이었는지 저장한다. 같은 걸 다시 누르면 해제(미지정).
+  function setKind(habit, kind) {
+    var date = dstr(viewDate);
+    var key = habit + '_what';
+    var prev = cachedLog[date] ? cachedLog[date][key] : null;
+    var next = (prev === kind) ? null : kind;
+
+    setLocal(date, key, next);
+    renderAll();
+    showStatus('저장 중...', 'busy');
+    writeQueue = writeQueue.then(function () {
+      return fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: date, habit: key, value: next })
+      })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (e) { throw new Error(e.error || ('저장 실패 ' + res.status)); });
+          return res.json();
+        })
+        .then(function (result) {
+          if (result.log) cachedLog = result.log;
+          renderAll();
+          showStatus('저장됨', 'ok'); setTimeout(hideStatus, 900);
+        })
+        .catch(function (err) {
+          setLocal(date, key, prev === undefined ? null : prev);
           renderAll();
           showStatus('저장 실패 — ' + err.message, 'err');
         });

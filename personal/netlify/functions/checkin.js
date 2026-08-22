@@ -92,6 +92,9 @@ exports.handler = async (event) => {
       // 안 주면 예전처럼 뒤집는다 — 옛 클라이언트가 깨지지 않게.
       if ('value' in body) {
         if (body.value === null) delete data[date][habit];
+        // 'na' = 기회 없음. 안 함(false)과 다르다 — 못 한 날이 아니라 없던 날이다.
+        // 문자열은 그대로 둔다: 기여 항목의 '_what'(설거지·안마·…)도 이 경로로 온다.
+        else if (typeof body.value === 'string') data[date][habit] = body.value;
         else data[date][habit] = !!body.value;
       } else {
         data[date][habit] = !data[date][habit];
