@@ -71,6 +71,19 @@
   .check.is-done[data-habit="sleep"] .check__box { background: var(--h-sleep); }
   .check.is-done[data-habit="dishes"] .check__box { background: var(--h-dishes); }
   .check.is-done .check__label { color: var(--ink-muted); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+  /* 안 함 — 기록 없음(빈 네모)과 반드시 달라 보여야 한다. 둘이 같으면 아무것도 못 읽는다. */
+  .check__box { position: relative; }
+  .check__box .icon-x { position: absolute; color: var(--ink-faint); }
+  .check.is-miss .check__box { border-color: var(--ink-faint); border-style: dashed; background: none; }
+  .check.is-miss .check__box .icon-x { opacity: 1; }
+  .check.is-miss .check__label { color: var(--ink-faint); }
+
+  .dayclose {
+    display: block; width: 100%; margin-top: 10px; padding: 12px; border-radius: 10px;
+    background: none; border: 1px dashed var(--line); color: var(--ink-muted);
+    font-family: inherit; font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .dayclose:disabled { opacity: 0.4; }
   .check__meta { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
 
   .date-nav {
@@ -164,6 +177,7 @@
   <div class="status" id="statusBar"></div>
 
   <div class="card" id="checkCard"></div>
+  <button class="dayclose" id="dayClose">오늘 마감 — 안 찍은 건 '안 함'으로</button>
 
   <section>
     <p class="section__title">이번 주 <span id="weekRange" style="font-weight:400;color:var(--ink-faint)"></span></p>
@@ -193,7 +207,7 @@
       <div class="calendar__legend" id="calLegend"></div>
     </div>
   </section>
-  <p class="build">build 2026-08-17 · git deploy</p>
+  <p class="build">build 2026-08-22 · 3단계 체크 + 하루 마감</p>
 </div>
 
 <script>
@@ -234,7 +248,10 @@
     btn.className = 'check';
     btn.setAttribute('data-habit', h.key);
     btn.innerHTML =
-      '<span class="check__box"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+      '<span class="check__box">'
+      + '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      + '<svg class="icon-x" viewBox="0 0 16 16" fill="none"><path d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+      + '</span>' +
       '<span class="check__label"></span>' +
       '<span class="check__meta"></span>';
     btn.querySelector('.check__label').textContent = h.label;
@@ -279,7 +296,9 @@
   function renderChecks(dayData) {
     HABITS.forEach(function (h) {
       var btn = document.querySelector('.check[data-habit="' + h.key + '"]');
-      btn.classList.toggle('is-done', !!(dayData && dayData[h.key]));
+      var v = dayData ? dayData[h.key] : undefined;
+      btn.classList.toggle('is-done', v === true);
+      btn.classList.toggle('is-miss', v === false);
     });
   }
 
@@ -297,15 +316,22 @@
 
   function setLocal(date, habit, value) {
     if (!cachedLog[date]) cachedLog[date] = {};
-    cachedLog[date][habit] = value;
+    if (value === null) delete cachedLog[date][habit];
+    else cachedLog[date][habit] = value;
   }
+
+  // 세 상태를 돈다: 기록 없음 → 함 → 안 함 → 기록 없음.
+  // 예전에는 함/안함 두 상태였는데 '안 함'과 '기록 없음'이 화면에서 같아 보여서
+  // 사실상 안 함을 남길 수단이 없었다 (2026-08-22).
+  function nextState(v) { return v === undefined ? true : (v === true ? false : null); }
 
   function toggleHabit(habit) {
     var date = dstr(viewDate);
-    var prev = !!(cachedLog[date] && cachedLog[date][habit]);
+    var prev = cachedLog[date] ? cachedLog[date][habit] : undefined;
+    var next = nextState(prev);
 
     // Flip the UI first; the network write happens behind it.
-    setLocal(date, habit, !prev);
+    setLocal(date, habit, next);
     renderAll();
     showStatus('저장 중...', 'busy');
 
@@ -313,7 +339,7 @@
       return fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: date, habit: habit })
+        body: JSON.stringify({ date: date, habit: habit, value: next })
       })
         .then(function (res) {
           if (!res.ok) return res.json().then(function (e) { throw new Error(e.error || ('저장 실패 ' + res.status)); });
@@ -326,9 +352,47 @@
           setTimeout(hideStatus, 1000);
         })
         .catch(function (err) {
-          setLocal(date, habit, prev);
+          setLocal(date, habit, prev === undefined ? null : prev);
           renderAll();
           showStatus('저장 실패 — ' + err.message, 'err');
+        });
+    });
+  }
+
+  // 하루를 닫는다 — 안 찍은 항목을 전부 '안 함'으로 확정한다.
+  // 미기록이 쌓이면 지표가 아니라 지표의 재료가 없어진다.
+  function closeDay() {
+    var date = dstr(viewDate);
+    var keys = HABITS.map(function (h) { return h.key; });
+    var missing = keys.filter(function (k) {
+      return !cachedLog[date] || cachedLog[date][k] === undefined;
+    });
+    if (!missing.length) { showStatus('이미 다 기록됐다', 'ok'); setTimeout(hideStatus, 1200); return; }
+
+    missing.forEach(function (k) { setLocal(date, k, false); });
+    renderAll();
+    showStatus('마감 중...', 'busy');
+
+    writeQueue = writeQueue.then(function () {
+      return fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: date, close: true, habits: keys })
+      })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (e) { throw new Error(e.error || ('마감 실패 ' + res.status)); });
+          return res.json();
+        })
+        .then(function (result) {
+          if (result.log) cachedLog = result.log;
+          renderAll();
+          showStatus(missing.length + '개를 안 함으로 기록했다', 'ok');
+          setTimeout(hideStatus, 1500);
+        })
+        .catch(function (err) {
+          missing.forEach(function (k) { setLocal(date, k, null); });
+          renderAll();
+          showStatus('마감 실패 — ' + err.message, 'err');
         });
     });
   }
@@ -451,6 +515,7 @@
   document.getElementById('nextDay').addEventListener('click', function () {
     if (viewDate < todayMidnight()) { viewDate.setDate(viewDate.getDate() + 1); renderAll(); }
   });
+  document.getElementById('dayClose').addEventListener('click', closeDay);
   document.getElementById('prevMonth').addEventListener('click', function () {
     calMonth.setMonth(calMonth.getMonth() - 1); renderCalendar(cachedLog);
   });

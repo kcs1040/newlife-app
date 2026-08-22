@@ -62,16 +62,46 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers: cors, body: JSON.stringify(date ? (data[date] || {}) : data) };
     }
     if (event.httpMethod === 'POST') {
-      const { date, habit } = JSON.parse(event.body || '{}');
-      if (!date || !habit) {
-        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'date, habit required' }) };
+      const body = JSON.parse(event.body || '{}');
+      const { date, habit, close, habits } = body;
+      if (!date) {
+        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'date required' }) };
+      }
+
+      // "오늘 마감" — 안 찍은 항목을 전부 false 로 확정한다.
+      // 기록 없음(모름)과 안 함(false)이 구분되지 않으면 어떤 지표도 읽을 수 없다.
+      if (close) {
+        if (!Array.isArray(habits) || !habits.length) {
+          return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'habits required when close' }) };
+        }
+        const { data, sha } = await fetchLog();
+        if (!data[date]) data[date] = {};
+        const filled = habits.filter((k) => data[date][k] === undefined);
+        filled.forEach((k) => { data[date][k] = false; });
+        if (filled.length) await saveLog(data, sha, `check-in: ${date} 마감 (${filled.join(',')}=false)`);
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ date, filled, log: data }) };
+      }
+
+      if (!habit) {
+        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'habit required' }) };
       }
       const { data, sha } = await fetchLog();
       if (!data[date]) data[date] = {};
-      data[date][habit] = !data[date][habit];
-      await saveLog(data, sha, `check-in: ${date} ${habit}=${data[date][habit]}`);
+
+      // value 를 주면 그대로 쓴다. null 은 기록 삭제(= 모름).
+      // 안 주면 예전처럼 뒤집는다 — 옛 클라이언트가 깨지지 않게.
+      if ('value' in body) {
+        if (body.value === null) delete data[date][habit];
+        else data[date][habit] = !!body.value;
+      } else {
+        data[date][habit] = !data[date][habit];
+      }
+      if (!Object.keys(data[date]).length) delete data[date];
+
+      const shown = data[date] === undefined ? 'none' : String(data[date][habit]);
+      await saveLog(data, sha, `check-in: ${date} ${habit}=${shown}`);
       // Return the whole log so the client can refresh stats without a second round trip.
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ date, habit, value: data[date][habit], log: data }) };
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ date, habit, value: data[date] && data[date][habit], log: data }) };
     }
     return { statusCode: 405, headers: cors, body: 'Method not allowed' };
   } catch (e) {
