@@ -9,6 +9,9 @@
      호스트 배경과 무관하게 동일하게 보이도록 한다. */
   :root {
     --void:#0B0D10; --panel:#14171C; --sunk:#1B1F26; --line:#252A33; --line-2:#1D222A;
+    /* 지출 항목 6슬롯. 순서 고정 — 항목이 늘거나 줄어도 색이 따라 움직이면 안 된다.
+       패널(#14171C) 기준으로 명도대·채도·색각 분리·대비 전부 통과. 6개를 넘으면 '기타'로 접는다. */
+    --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#9085e9;
     --ink:#E9ECEF; --dim:#8C949F; --faint:#59616D;
     --brass:#C9A227; --brass-dim:#6E5A16;
     --jade:#4E9E7F; --clay:#C4614C; --steel:#5B8CB8; --slate:#5A6473; --teal:#3F8E96; --plum:#8E6FA3;
@@ -115,6 +118,15 @@
   .verdict b { font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:4px; flex-shrink:0; }
 
   .chart { padding:14px 10px 8px; }
+  /* 스몰 멀티플 — 자산군마다 스케일이 100배 차이라 한 축에 못 얹는다.
+     각 칸이 제 스케일을 쓰고, 비교는 '모양'과 옆에 적힌 증감으로 한다. */
+  .sm { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line-2); }
+  .sm__c { background:var(--panel); padding:11px 12px 8px; }
+  .sm__h { display:flex; align-items:baseline; gap:6px; }
+  .sm__n { font-size:12px; color:var(--dim); }
+  .sm__d { margin-left:auto; font-family:var(--mono); font-size:10.5px; }
+  .sm__v { font-family:var(--mono); font-size:15px; font-weight:600; margin-top:1px; font-variant-numeric:tabular-nums; }
+  .sm__s { display:block; width:100%; height:34px; margin-top:5px; overflow:visible; }
   .chart svg { width:100%; height:auto; display:block; overflow:visible; }
   .glabel { font-family:var(--mono); font-size:9.5px; fill:var(--faint); }
 
@@ -200,6 +212,18 @@
     <section class="panel">
       <div class="hd"><span class="hd__t">추이</span><span class="hd__n" id="cfCount"></span></div>
       <div id="cfChartBox"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">순자산 추이</span><span class="hd__n" id="nwTag"></span></div>
+      <div id="nwChartBox"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">자산군별 추이</span><span class="hd__n" id="acTag"></span></div>
+      <div id="acChartBox"></div>
+    </section>
+    <section class="panel">
+      <div class="hd"><span class="hd__t">지출 항목별</span><span class="hd__n" id="catTag"></span></div>
+      <div id="catChartBox"></div>
     </section>
     <section class="panel">
       <div class="hd"><span class="hd__t">월별 실적</span><span class="hd__n">만원</span></div>
@@ -357,7 +381,14 @@
     return (a.value||0)+(a.buckets||[]).reduce(function(s,b){return s+(b.value||0);},0);
   }
 
-  function sumOf(o){ return Object.keys(o||{}).reduce(function(s,k){return s+(o[k]||0);},0); }
+  // 숫자만 더한다. expenses 에는 detail{} · notes{} 같은 객체가 섞여 있고
+  // (2026-08-22 세부 항목 도입), 그걸 그냥 더하면 문자열 연결이 돼 화면이 깨진다.
+  // detail 은 fixed/variable 의 내역이므로 합계에 다시 넣어서도 안 된다.
+  function sumOf(o){
+    return Object.keys(o||{}).reduce(function(s,k){
+      var v=o[k]; return s+(typeof v==='number'&&isFinite(v)?v:0);
+    },0);
+  }
 
   // 월 기준값. 실적이 WINDOW개월 이상 쌓이면 그 평균이 기준이 되고,
   // 그 전까지만 초기 추정치를 쓴다 — 추정치는 발판이지 잣대가 아니다.
@@ -857,6 +888,181 @@
     });
   }
 
+  var CAT_COLORS=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
+  var SVGNS='http://www.w3.org/2000/svg';
+  function svgEl(t,attrs){ var e=document.createElementNS(SVGNS,t);
+    for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+  // 순자산 추이 — 한 계열이라 범례를 두지 않는다. 제목이 이미 계열 이름이다.
+  // portfolio.json 은 현재 상태만 담으므로 각 달의 netWorth 스냅샷에서만 그릴 수 있다.
+  function renderNetWorth(ms){
+    var box=$('nwChartBox'); box.innerHTML='';
+    var pts=ms.filter(function(x){return x.netWorth&&typeof x.netWorth.net==='number';});
+    $('nwTag').textContent=pts.length?pts.length+'개월':'기록 없음';
+    if(pts.length<2){
+      var e=el('div','empty');
+      e.innerHTML=(pts.length?'점이 하나뿐이다 — <b style="color:var(--brass)">'+man(pts[0].netWorth.net)+'</b>'
+        :'아직 없다')
+        +'<br><span style="color:var(--faint)">두 달치가 쌓이면 여기에 선이 그려진다. 갱신할 때마다 한 점씩 남는다.</span>';
+      box.appendChild(e); return;
+    }
+    var W=660,H=200,PX=52,PY=18;
+    var vs=pts.map(function(x){return x.netWorth.net;});
+    var lo=Math.min.apply(null,vs), hi=Math.max.apply(null,vs);
+    var pad=(hi-lo)*0.25||Math.abs(hi)*0.05||1; lo-=pad; hi+=pad;
+    var X=function(i){return PX+i*(W-PX-58)/Math.max(1,pts.length-1);};
+    var Y=function(v){return H-PY-(v-lo)/(hi-lo)*(H-PY*2);};
+    var wrap=el('div','chart'), svg=svgEl('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'순자산 추이'});
+    wrap.appendChild(svg); box.appendChild(wrap);
+    [lo,(lo+hi)/2,hi].forEach(function(g){
+      svg.appendChild(svgEl('line',{x1:PX,x2:W-58,y1:Y(g),y2:Y(g),stroke:'var(--line-2)'}));
+      var t=svgEl('text',{x:PX-7,y:Y(g)+3,'text-anchor':'end',class:'glabel'});
+      t.textContent=man(g); svg.appendChild(t);
+    });
+    var pth=svgEl('path',{d:pts.map(function(x,i){return (i?'L':'M')+X(i)+' '+Y(x.netWorth.net);}).join(' '),
+      fill:'none',stroke:'var(--brass)','stroke-width':'2','stroke-linejoin':'round'});
+    svg.appendChild(pth);
+    pts.forEach(function(x,i){
+      // 겹침 대비 2px 표면 링
+      svg.appendChild(svgEl('circle',{cx:X(i),cy:Y(x.netWorth.net),r:'4',fill:'var(--brass)',
+        stroke:'var(--panel)','stroke-width':'2'}));
+      var lab=svgEl('text',{x:X(i),y:H-3,'text-anchor':'middle',class:'glabel'});
+      lab.textContent=x.m.slice(5); svg.appendChild(lab);
+    });
+    // 마지막 점만 직접 라벨 — 모든 점에 숫자를 붙이지 않는다
+    var lastI=pts.length-1, lv=pts[lastI].netWorth.net;
+    var dl=svgEl('text',{x:X(lastI)+9,y:Y(lv)+4,class:'glabel'});
+    dl.setAttribute('fill','var(--ink)'); dl.textContent=man(lv); svg.appendChild(dl);
+    var d0=pts[0].netWorth.net, chg=lv-d0;
+    box.appendChild(el('div','note','첫 점 '+pts[0].m+' 대비 '+(chg>=0?'+':'−')+man(Math.abs(chg))
+      +'. 계좌 잔액이 전부 확인된 시점부터의 값이다.'));
+  }
+
+  // 자산군별 추이 — 스몰 멀티플.
+  // 전세보증금이 전체의 83%라 한 축에 쌓으면 나머지 넷이 바닥에 눌려 안 보인다.
+  // 그래서 칸을 나누고 각자 제 스케일을 쓴다. 크기 비교는 옆의 금액이, 변화는 모양이 맡는다.
+  var CLASS_META=[
+    {k:'cash',       n:'현금성',   c:'var(--c1)'},
+    {k:'equity',     n:'주식',     c:'var(--c2)'},
+    {k:'pension',    n:'연금',     c:'var(--c3)'},
+    {k:'realestate', n:'전세보증금', c:'var(--c4)'},
+    {k:'__debt',     n:'부채',     c:'var(--c5)'}
+  ];
+  function renderAssetClasses(ms){
+    var box=$('acChartBox'); box.innerHTML='';
+    var pts=ms.filter(function(x){return x.netWorth&&x.netWorth.byClass;});
+    $('acTag').textContent=pts.length?pts.length+'개월':'기록 없음';
+    if(!pts.length){
+      box.appendChild(el('div','empty','아직 없다. 갱신할 때마다 자산군별로 한 점씩 쌓인다.'));
+      return;
+    }
+    function valOf(p,k){ return k==='__debt' ? (p.netWorth.debt||0) : (p.netWorth.byClass[k]||0); }
+    var grid=el('div','sm');
+    CLASS_META.forEach(function(cm){
+      var vs=pts.map(function(p){return valOf(p,cm.k);});
+      if(!vs.some(function(v){return v;})) return;
+      var last=vs[vs.length-1], first=vs[0], chg=last-first;
+      var cell=el('div','sm__c');
+      var hd=el('div','sm__h');
+      var sw=el('s'); sw.style.cssText='width:7px;height:7px;border-radius:50%;display:inline-block;background:'+cm.c;
+      hd.appendChild(sw); hd.appendChild(el('span','sm__n',cm.n));
+      if(pts.length>1){
+        var dd=el('span','sm__d',(chg>=0?'+':'−')+man(Math.abs(chg)));
+        dd.style.color = chg===0 ? 'var(--faint)'
+          : (cm.k==='__debt' ? (chg>0?'var(--clay)':'var(--jade)')
+                             : (chg>0?'var(--jade)':'var(--clay)'));
+        hd.appendChild(dd);
+      }
+      cell.appendChild(hd);
+      cell.appendChild(el('div','sm__v num',man(last)));
+      if(pts.length>1){
+        var W=150,H=34,P=3;
+        var lo=Math.min.apply(null,vs), hi=Math.max.apply(null,vs);
+        var span=(hi-lo)||Math.abs(hi)*0.02||1;
+        var X=function(i){return P+i*(W-P*2)/(pts.length-1);};
+        var Y=function(v){return H-P-(v-lo)/span*(H-P*2);};
+        var sv=svgEl('svg',{viewBox:'0 0 '+W+' '+H,class:'sm__s',preserveAspectRatio:'none',
+          role:'img','aria-label':cm.n+' 추이'});
+        sv.appendChild(svgEl('path',{d:vs.map(function(v,i){return (i?'L':'M')+X(i)+' '+Y(v);}).join(' '),
+          fill:'none',stroke:cm.c,'stroke-width':'2','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));
+        sv.appendChild(svgEl('circle',{cx:X(pts.length-1),cy:Y(last),r:'3',fill:cm.c,
+          stroke:'var(--panel)','stroke-width':'2'}));
+        cell.appendChild(sv);
+      }
+      grid.appendChild(cell);
+    });
+    box.appendChild(grid);
+    box.appendChild(el('div','note', pts.length<2
+      ? '점이 하나뿐이라 아직 선이 없다. 금액은 '+pts[0].netWorth.asOf+' 기준.'
+      : '칸마다 세로 눈금이 다르다 — 전세보증금이 전체의 8할이라 한 축에 얹으면 나머지가 안 보인다. '
+        +'모양은 그 자산군 안에서의 변화이고, 칸끼리 기울기를 비교하면 안 된다. '
+        +'오른쪽 증감은 '+pts[0].m+' 대비 만원.'));
+  }
+
+  // 지출 항목별 — 한 달이면 구성, 두 달 이상이면 추이. 6개를 넘으면 '기타'로 접는다.
+  function renderCategories(ms){
+    var box=$('catChartBox'); box.innerHTML='';
+    var has=ms.filter(function(x){return x.expenses&&x.expenses.detail;});
+    // 범례 숫자가 무엇의 금액인지 헤더에 못박는다 — 안 그러면 달 수에 따라 뜻이 조용히 바뀐다
+    $('catTag').textContent=has.length
+      ?(has.length===1?'만원 · 이번 달':'만원 · '+has.length+'개월 합계')
+      :'기록 없음';
+    if(!has.length){
+      box.appendChild(el('div','empty','지출 세부가 아직 없다. 카드 명세를 넣으면 항목별로 갈린다.'));
+      return;
+    }
+    // 전체 기간 합계가 큰 순으로 항목 순서를 고정한다 — 달마다 색이 바뀌면 못 읽는다
+    var tot={};
+    has.forEach(function(x){ for(var k in x.expenses.detail) tot[k]=(tot[k]||0)+x.expenses.detail[k]; });
+    var names=Object.keys(tot).sort(function(a,b){return tot[b]-tot[a];});
+    var keep=names.slice(0,CAT_COLORS.length-1), rest=names.slice(CAT_COLORS.length-1);
+    var slots=keep.concat(rest.length?['기타']:[]);
+    var colorOf={}; slots.forEach(function(n,i){ colorOf[n]=CAT_COLORS[i]; });
+    function valOf(x,n){
+      if(n!=='기타') return x.expenses.detail[n]||0;
+      return rest.reduce(function(a,k){return a+(x.expenses.detail[k]||0);},0);
+    }
+    var maxSum=Math.max.apply(null,has.map(function(x){
+      return slots.reduce(function(a,n){return a+valOf(x,n);},0);}))||1;
+
+    var W=660,H=200,PX=52,PY=14,BW=Math.min(64,(W-PX-20)/has.length*0.6);
+    var wrap=el('div','chart'), svg=svgEl('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'지출 항목별'});
+    wrap.appendChild(svg); box.appendChild(wrap);
+    var X=function(i){return PX+(i+0.5)*(W-PX-20)/has.length;};
+    var Y=function(v){return H-PY-v/maxSum*(H-PY*2.2);};
+    [0,maxSum/2,maxSum].forEach(function(g){
+      svg.appendChild(svgEl('line',{x1:PX,x2:W-20,y1:Y(g),y2:Y(g),stroke:'var(--line-2)'}));
+      var t=svgEl('text',{x:PX-7,y:Y(g)+3,'text-anchor':'end',class:'glabel'});
+      t.textContent=man(g); svg.appendChild(t);
+    });
+    has.forEach(function(x,i){
+      var acc=0;
+      slots.forEach(function(n){
+        var v=valOf(x,n); if(!v) return;
+        var y0=Y(acc+v), y1=Y(acc), h=Math.max(1,y1-y0-2);   // 2px 표면 간격
+        var r=svgEl('rect',{x:X(i)-BW/2,y:y0,width:BW,height:h,rx:'2',fill:colorOf[n]});
+        var ttl=document.createElementNS(SVGNS,'title');
+        ttl.textContent=n+' '+man(v); r.appendChild(ttl);
+        svg.appendChild(r); acc+=v;
+      });
+      var lab=svgEl('text',{x:X(i),y:H-2,'text-anchor':'middle',class:'glabel'});
+      lab.textContent=x.m.slice(5); svg.appendChild(lab);
+    });
+    var ks=el('div','keys'); ks.style.padding='0 16px 14px';
+    slots.forEach(function(n){
+      // 언제나 전체 기간 합계. 한 달뿐이면 그 달 값과 같다 — 뜻이 바뀌지 않는다
+      var v=(n==='기타') ? rest.reduce(function(a,k){return a+tot[k];},0) : tot[n];
+      if(!v) return;
+      var k=el('span','key'), sw=el('s'); sw.style.background=colorOf[n]; k.appendChild(sw);
+      k.appendChild(document.createTextNode(n+' '+man(v))); ks.appendChild(k);
+    });
+    box.appendChild(ks);
+    var noteTxt=(has.length===1?'막대는 이번 달 지출 구성이다.':'막대 하나가 한 달이고, 높이는 그달 총지출이다.')
+      +' 범례 옆 숫자는 '+(has.length===1?'이번 달':has.length+'개월 합계')+' 금액(만원).';
+    if(rest.length) noteTxt+=' 기타 = '+rest.join(' · ')+'.';
+    box.appendChild(el('div','note',noteTxt));
+  }
+
   function renderCashflow(m){
     var CF=D.cashflow||{months:[]}, ms=CF.months||[], W=CF.window||3;
     $('cfCount').textContent=ms.length?ms.length+'개월':'기록 없음';
@@ -913,23 +1119,30 @@
       cb.appendChild(ks);
     }
 
+    renderNetWorth(ms);
+    renderAssetClasses(ms);
+    renderCategories(ms);
+
     // 월별 실적
     var act=$('cfActual'); act.innerHTML='';
     if(!ms.length){
       act.appendChild(el('div','empty','아직 없다. 8/22에 지난 한 달 수입·지출을 말하면 첫 줄이 생긴다.'));
     } else {
       ms.slice().reverse().forEach(function(x){
-        var inc=sumOf(x.income), exp=sumOf(x.expenses), sav=sumOf(x.savings), left=inc-exp-sav;
+        var inc=sumOf(x.income), exp=sumOf(x.expenses), sav=sumOf(x.savings);
+        var mv=sumOf(x.transfers), left=inc-exp-sav-mv;
         var r=el('div','ln');
         var sw=el('s'); sw.style.background=left>=0?'var(--jade)':'var(--clay)'; r.appendChild(sw);
         r.appendChild(el('span','ln__n',x.m));
-        r.appendChild(el('span','ln__i','수입 '+man(inc)+' · 지출 '+man(exp)+' · 적립 '+man(sav)));
+        r.appendChild(el('span','ln__i','수입 '+man(inc)+' · 지출 '+man(exp)+' · 적립 '+man(sav)
+          +(mv?' · 이동 '+man(mv):'')));
         var v=el('span','ln__v num',(left>=0?'+':'−')+man(Math.abs(left)));
         v.style.color=left>=0?'var(--jade)':'var(--clay)'; r.appendChild(v);
         act.appendChild(r);
         if(x.note) act.appendChild(el('div','note',x.note));
       });
-      act.appendChild(el('div','note','오른쪽 숫자는 그달에 남은 돈이다. 수입 − 지출 − 적립.'));
+      act.appendChild(el('div','note','오른쪽 숫자는 그달에 남은 돈이다. 수입 − 지출 − 적립 − 이동. '
+        +'이동은 다른 계좌로 옮긴 돈이라 쓴 것도 모은 것도 아니다.'));
     }
 
     // 기준값 — 시뮬레이터와 저축률이 무엇을 근거로 계산되는지 밝힌다
